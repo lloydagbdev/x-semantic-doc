@@ -776,7 +776,6 @@ async function convertBlock(eid, newType) {
 function showAddMenu(event, afterEid) {
   event.stopPropagation();
   event.preventDefault();
-  console.log('showAddMenu called with afterEid:', afterEid);
   closeAddMenu();
   cmdAfterEid = afterEid;
 
@@ -787,7 +786,6 @@ function showAddMenu(event, afterEid) {
   const rect = event.target.getBoundingClientRect();
   menu.style.left = rect.left + 'px';
   menu.style.top = (rect.bottom + 4) + 'px';
-  console.log('Menu position:', rect.left, rect.bottom);
 
   for (const bt of BLOCK_TYPES) {
     const item = document.createElement('div');
@@ -796,7 +794,6 @@ function showAddMenu(event, afterEid) {
     item.addEventListener('mousedown', (e) => {
       e.stopPropagation();
       e.preventDefault();
-      console.log('Menu item clicked:', bt.type, 'afterEid:', afterEid);
       insertBlockDirect(bt.type, afterEid);
     });
     menu.appendChild(item);
@@ -804,7 +801,6 @@ function showAddMenu(event, afterEid) {
 
   document.body.appendChild(menu);
   openAddMenu = menu;
-  console.log('Menu appended to body, items:', menu.children.length);
 
   requestAnimationFrame(() => {
     document.addEventListener('mousedown', closeAddMenuOutside, { once: true });
@@ -825,16 +821,13 @@ function closeAddMenuOutside(e) {
 }
 
 async function insertBlockDirect(type, afterEid) {
-  console.log('insertBlockDirect called:', type, afterEid);
   closeAddMenu();
   const params = { after: afterEid === -1 ? null : afterEid, type };
   if (type === 'code_block') params.language = 'python';
   if (type === 'section') params.level = 1;
   if (type === 'list') params.list_type = 'unordered';
   if (type === 'admonition') params.admon_type = 'note';
-  console.log('API params:', params);
   const res = await api('/insert_block_after', 'POST', params);
-  console.log('API response:', res);
   if (res.status === 'ok') {
     doc = res.document;
     render();
@@ -842,8 +835,6 @@ async function insertBlockDirect(type, afterEid) {
       const newBlock = document.querySelector(`[data-eid="${res.eid}"] input, [data-eid="${res.eid}"] textarea`);
       if (newBlock) newBlock.focus();
     }, 50);
-  } else {
-    console.error('API error:', res);
   }
 }
 
