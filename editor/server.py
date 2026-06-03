@@ -20,6 +20,9 @@ from semantic_doc.adapters import load as adapter_load
 EDITOR_DIR = Path(__file__).parent
 _repo = None
 _current_store = None
+_history = []
+_history_index = -1
+_MAX_HISTORY = 50
 
 
 def get_repo():
@@ -44,9 +47,33 @@ def get_current_store():
     return _current_store
 
 
-def set_current_store(store):
-    global _current_store
+def set_current_store(store, track_history=True):
+    global _current_store, _history, _history_index
+    if track_history and _current_store is not None:
+        _history = _history[:_history_index + 1]
+        _history.append(to_dict(_current_store))
+        if len(_history) > _MAX_HISTORY:
+            _history = _history[-_MAX_HISTORY:]
+        _history_index = len(_history) - 1
     _current_store = store
+
+
+def undo():
+    global _current_store, _history_index
+    if _history_index > 0:
+        _history_index -= 1
+        _current_store = from_dict(_history[_history_index])
+        return True
+    return False
+
+
+def redo():
+    global _current_store, _history_index
+    if _history_index < len(_history) - 1:
+        _history_index += 1
+        _current_store = from_dict(_history[_history_index])
+        return True
+    return False
 
 
 def _serialize_store(store):
@@ -397,6 +424,170 @@ class EditorHandler(SimpleHTTPRequestHandler):
                 repo.delete_branch(name)
             self._send_json({"status": "ok", "document": _serialize_store(get_current_store())})
 
+        elif parsed.path == "/api/move_block":
+            store = get_current_store()
+            eid = data.get("eid")
+            direction = data.get("direction", "up")
+            if eid is None:
+                self._send_json({"status": "error", "message": "No eid"}, 400)
+                return
+            node = store.node_type[eid] if eid < store.entity_count else None
+            if node is None:
+                self._send_json({"status": "error", "message": "Node not found"}, 400)
+                return
+            parent = store.node_parent[eid]
+            if direction == "up":
+                prev = store.node_prev[eid]
+                if prev != -1:
+                    _swap_siblings(store, prev, eid, parent)
+            else:
+                next_ = store.node_next[eid]
+                if next_ != -1:
+                    _swap_siblings(store, eid, next_, parent)
+            set_current_store(store)
+            self._send_json({"status": "ok", "document": _serialize_store(store)})
+
+        elif parsed.path == "/api/convert_block":
+            store = get_current_store()
+            eid = data.get("eid")
+            new_type = data.get("new_type")
+            if eid is None or new_type is None:
+                self._send_json({"status": "error", "message": "Missing params"}, 400)
+                return
+            old_type = store.node_type[eid]
+            content = _collect_text(store, eid)
+            parent = store.node_parent[eid]
+            _delete_node(store, eid)
+            type_map = {
+                "paragraph": BlockType.PARAGRAPH,
+                "section": BlockType.SECTION,
+                "code_block": BlockType.CODE_BLOCK,
+                "blockquote": BlockType.BLOCKQUOTE,
+                "list": BlockType.LIST,
+                "admonition": BlockType.ADMONITION,
+                "thematic_break": BlockType.THEMATIC_BREAK,
+            }
+            bt = type_map.get(new_type)
+            if bt is None:
+                self._send_json({"status": "error", "message": f"Unknown type: {new_type}"}, 400)
+                return
+            if parent == -1:
+                new_eid = store._alloc_root_node(bt)
+            else:
+                new_eid = store.alloc_node(bt, parent=parent)
+            if bt == BlockType.SECTION:
+                store.block_level[new_eid] = 1
+                if content:
+                    t = store.alloc_node(InlineType.TEXT, parent=new_eid)
+                    store.inline_text[t] = store.intern(content)
+            elif bt in (BlockType.PARAGRAPH, BlockType.BLOCKQUOTE, BlockType.ADMONITION):
+                if content:
+                    t = store.alloc_node(InlineType.TEXT, parent=new_eid)
+                    store.inline_text[t] = store.intern(content)
+            elif bt == BlockType.CODE_BLOCK:
+                store.block_content[new_eid] = store.intern(content)
+            elif bt == BlockType.ADMONITION:
+                store.block_admon_type[new_eid] = AdmonType.NOTE
+            elif bt == BlockType.LIST:
+                store.block_list_type[new_eid] = ListType.UNORDERED
+            set_current_store(store)
+            self._send_json({"status": "ok", "eid": new_eid, "document": _serialize_store(store)})
+
+        elif parsed.path == "/api/add_table_column":
+            store = get_current_store()
+            table_eid = data.get("table_eid")
+            if table_eid is None:
+                self._send_json({"status": "error", "message": "No table_eid"}, 400)
+                return
+            for rid in store.children(table_eid):
+                if store.node_type[rid] == BlockType.TABLE_ROW:
+                    cell_eid = store.alloc_node(BlockType.TABLE_CELL, parent=rid)
+                    text_eid = store.alloc_node(InlineType.TEXT, parent=cell_eid)
+                    store.inline_text[text_eid] = store.intern("")
+            set_current_store(store)
+            self._send_json({"status": "ok", "document": _serialize_store(store)})
+
+        elif parsed.path == "/api/delete_table_column":
+            store = get_current_store()
+            table_eid = data.get("table_eid")
+            col_idx = data.get("col_idx", 0)
+            if table_eid is None:
+                self._send_json({"status": "error", "message": "No table_eid"}, 400)
+                return
+            for rid in store.children(table_eid):
+                if store.node_type[rid] == BlockType.TABLE_ROW:
+                    cells = store.children(rid)
+                    if col_idx < len(cells):
+                        _delete_node(store, cells[col_idx])
+            set_current_store(store)
+            self._send_json({"status": "ok", "document": _serialize_store(store)})
+
+        elif parsed.path == "/api/undo":
+            if undo():
+                self._send_json({"status": "ok", "document": _serialize_store(get_current_store())})
+            else:
+                self._send_json({"status": "ok", "message": "Nothing to undo"})
+
+        elif parsed.path == "/api/redo":
+            if redo():
+                self._send_json({"status": "ok", "document": _serialize_store(get_current_store())})
+            else:
+                self._send_json({"status": "ok", "message": "Nothing to redo"})
+
+        elif parsed.path == "/api/insert_block_after":
+            store = get_current_store()
+            after_eid = data.get("after")
+            block_type = data.get("type", "paragraph")
+            content = data.get("content", "")
+            language = data.get("language", "")
+            level = data.get("level", 1)
+            list_type = data.get("list_type", "unordered")
+            admon_type = data.get("admon_type", "note")
+            parent_eid = data.get("parent")
+
+            if after_eid is not None and after_eid >= 0:
+                after_node_type = store.node_type[after_eid] if after_eid < store.entity_count else None
+                if after_node_type:
+                    parent_eid = store.node_parent[after_eid]
+
+            type_map = {
+                "paragraph": BlockType.PARAGRAPH,
+                "section": BlockType.SECTION,
+                "code_block": BlockType.CODE_BLOCK,
+                "list": BlockType.LIST,
+                "blockquote": BlockType.BLOCKQUOTE,
+                "table": BlockType.TABLE,
+                "admonition": BlockType.ADMONITION,
+                "thematic_break": BlockType.THEMATIC_BREAK,
+            }
+            bt = type_map.get(block_type)
+            if bt is None:
+                self._send_json({"status": "error", "message": f"Unknown type: {block_type}"}, 400)
+                return
+
+            if parent_eid is not None and parent_eid >= 0:
+                eid = store.alloc_node(bt, parent=parent_eid)
+            else:
+                eid = store._alloc_root_node(bt)
+
+            if bt == BlockType.SECTION:
+                store.block_level[eid] = level
+            elif bt == BlockType.CODE_BLOCK:
+                if language:
+                    store.block_language[eid] = store.intern(language)
+                store.block_content[eid] = store.intern(content)
+            elif bt == BlockType.LIST:
+                store.block_list_type[eid] = ListType(list_type)
+            elif bt == BlockType.ADMONITION:
+                store.block_admon_type[eid] = AdmonType(admon_type)
+
+            if content and bt in (BlockType.PARAGRAPH, BlockType.SECTION, BlockType.BLOCKQUOTE, BlockType.ADMONITION):
+                t = store.alloc_node(InlineType.TEXT, parent=eid)
+                store.inline_text[t] = store.intern(content)
+
+            set_current_store(store)
+            self._send_json({"status": "ok", "eid": eid, "document": _serialize_store(store)})
+
         else:
             self.send_response(404)
             self.end_headers()
@@ -454,6 +645,34 @@ def _set_section_title(store, eid, text):
     if text_child is None:
         text_child = store.alloc_node(InlineType.TEXT, parent=eid)
     store.inline_text[text_child] = store.intern(text)
+
+
+def _swap_siblings(store, a, b, parent):
+    a_prev = store.node_prev[a]
+    a_next = store.node_next[a]
+    b_prev = store.node_prev[b]
+    b_next = store.node_next[b]
+
+    store.node_prev[a] = b_prev
+    store.node_next[a] = b_next
+    store.node_prev[b] = a_prev
+    store.node_next[b] = a_next
+
+    if a_prev != -1:
+        store.node_next[a_prev] = b
+    if b_next != -1:
+        store.node_prev[b_next] = a
+
+    if parent == -1:
+        if store.root_first == a:
+            store.root_first = b
+        elif store.root_first == b:
+            store.root_first = a
+    else:
+        if store.node_first_child[parent] == a:
+            store.node_first_child[parent] = b
+        elif store.node_first_child[parent] == b:
+            store.node_first_child[parent] = a
 
 
 def main():

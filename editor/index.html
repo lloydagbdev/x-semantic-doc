@@ -14,11 +14,12 @@ header h1 { font-size: 15px; font-weight: 600; color: #111; margin-right: 12px; 
 .btn:hover { background: #f3f4f6; border-color: #9ca3af; }
 .btn-primary { background: #2563eb; color: #fff; border-color: #2563eb; }
 .btn-primary:hover { background: #1d4ed8; }
-.btn-ghost { background: transparent; border-color: transparent; color: #6b7280; }
+.btn-ghost { background: transparent; border-color: transparent; color: #6b7280; padding: 5px 8px; }
 .btn-ghost:hover { background: #f3f4f6; color: #111; }
 .btn-danger { color: #dc2626; border-color: #fecaca; }
 .btn-danger:hover { background: #fef2f2; }
 .btn-sm { padding: 3px 8px; font-size: 12px; }
+.btn-icon { width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; }
 
 .main-layout { display: flex; flex: 1; overflow: hidden; }
 
@@ -40,10 +41,14 @@ header h1 { font-size: 15px; font-weight: 600; color: #111; margin-right: 12px; 
 .block { position: relative; margin: 2px 0; border-radius: 6px; transition: background 0.15s; }
 .block:hover { background: #f9fafb; }
 .block:hover .block-actions { opacity: 1; }
+.block.dragging { opacity: 0.5; background: #eff6ff; }
+.block.drag-over { border-top: 2px solid #2563eb; }
 
-.block-actions { position: absolute; left: -40px; top: 4px; display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; }
-.block-actions button { width: 24px; height: 24px; border: none; background: #fff; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.block-actions { position: absolute; left: -44px; top: 4px; display: flex; gap: 1px; opacity: 0; transition: opacity 0.15s; }
+.block-actions button { width: 22px; height: 22px; border: none; background: #fff; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .block-actions button:hover { background: #f3f4f6; color: #374151; }
+.block-actions .drag-handle { cursor: grab; font-size: 14px; }
+.block-actions .drag-handle:active { cursor: grabbing; }
 
 .block-section { padding: 8px 0; }
 .block-section input { font-size: 24px; font-weight: 700; color: #111; border: none; outline: none; width: 100%; background: transparent; padding: 4px 0; }
@@ -60,6 +65,7 @@ header h1 { font-size: 15px; font-weight: 600; color: #111; margin-right: 12px; 
 
 .block-paragraph textarea { width: 100%; border: none; outline: none; resize: none; font-size: 16px; line-height: 1.7; color: #1a1a1a; background: transparent; padding: 4px 0; font-family: inherit; overflow: hidden; min-height: 1.7em; }
 .block-paragraph textarea::placeholder { color: #d1d5db; }
+.block-paragraph textarea:focus { background: #fff; border-radius: 4px; padding: 4px 8px; margin: 0 -8px; box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
 
 .block-code { background: #1e1e2e; border-radius: 8px; padding: 12px 16px; margin: 4px 0; }
 .block-code .code-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -89,6 +95,8 @@ header h1 { font-size: 15px; font-weight: 600; color: #111; margin-right: 12px; 
 .block-table td input { width: 100%; border: none; outline: none; font-size: 14px; background: transparent; padding: 2px 0; }
 .block-table .row-actions { opacity: 0; transition: opacity 0.15s; }
 .block-table tr:hover .row-actions { opacity: 1; }
+.block-table .col-actions { opacity: 0; transition: opacity 0.15s; }
+.block-table thead tr:hover .col-actions { opacity: 1; }
 
 .block-admonition { padding: 12px 16px; margin: 4px 0; border-radius: 6px; border-left: 4px solid; }
 .block-admonition[data-type="note"] { background: #eff6ff; border-color: #3b82f6; }
@@ -104,15 +112,21 @@ header h1 { font-size: 15px; font-weight: 600; color: #111; margin-right: 12px; 
 .block-hr { padding: 16px 0; display: flex; align-items: center; justify-content: center; }
 .block-hr hr { width: 100%; border: none; border-top: 2px solid #e5e7eb; }
 
+.block-type-select { position: absolute; top: 0; right: 0; opacity: 0; transition: opacity 0.15s; }
+.block:hover .block-type-select { opacity: 1; }
+.block-type-select select { background: #fff; border: 1px solid #e5e7eb; padding: 2px 4px; border-radius: 4px; font-size: 11px; color: #6b7280; outline: none; cursor: pointer; }
+
 .add-block { padding: 8px 0; display: flex; align-items: center; gap: 8px; opacity: 0; transition: opacity 0.15s; }
 .block:hover + .add-block, .add-block:hover { opacity: 1; }
 .add-block button { width: 28px; height: 28px; border: 1px dashed #d1d5db; background: transparent; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 18px; }
 .add-block button:hover { border-color: #2563eb; color: #2563eb; background: #eff6ff; }
 
-.add-block-menu { position: absolute; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 6px; z-index: 100; min-width: 200px; }
-.add-block-menu .menu-item { padding: 6px 10px; border-radius: 5px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; color: #374151; }
-.add-block-menu .menu-item:hover { background: #f3f4f6; }
-.add-block-menu .menu-item .icon { width: 20px; text-align: center; }
+.cmd-palette { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); padding: 8px; z-index: 300; width: 320px; display: none; }
+.cmd-palette.active { display: block; }
+.cmd-palette input { width: 100%; border: none; outline: none; font-size: 14px; padding: 8px; background: transparent; }
+.cmd-palette .cmd-item { padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; color: #374151; }
+.cmd-palette .cmd-item:hover, .cmd-palette .cmd-item.selected { background: #f3f4f6; }
+.cmd-palette .cmd-item .icon { width: 20px; text-align: center; }
 
 .status-bar { background: #fff; border-top: 1px solid #e5e7eb; padding: 4px 20px; font-size: 11px; color: #9ca3af; display: flex; justify-content: space-between; flex-shrink: 0; }
 
@@ -139,6 +153,8 @@ header h1 { font-size: 15px; font-weight: 600; color: #111; margin-right: 12px; 
 <body>
 <header>
   <h1>Semantic Doc</h1>
+  <button class="btn btn-ghost btn-icon" onclick="doUndo()" title="Undo (Ctrl+Z)">↩</button>
+  <button class="btn btn-ghost btn-icon" onclick="doRedo()" title="Redo (Ctrl+Y)">↪</button>
   <button class="btn" onclick="newDoc()">New</button>
   <button class="btn" onclick="showImportModal()">Import</button>
   <button class="btn btn-ghost" onclick="exportMarkdown()">Export MD</button>
@@ -159,7 +175,12 @@ header h1 { font-size: 15px; font-weight: 600; color: #111; margin-right: 12px; 
 </div>
 <div class="status-bar">
   <span id="status-left">Ready</span>
-  <span id="status-right"></span>
+  <span id="status-right">Press / for commands · Ctrl+Z undo · Ctrl+Y redo</span>
+</div>
+
+<div class="cmd-palette" id="cmd-palette">
+  <input id="cmd-input" placeholder="Type to insert block..." />
+  <div id="cmd-list"></div>
 </div>
 
 <div class="modal" id="commit-modal">
@@ -222,12 +243,24 @@ header h1 { font-size: 15px; font-weight: 600; color: #111; margin-right: 12px; 
   </div>
 </div>
 
-<div class="add-block-menu" id="add-menu" style="display:none"></div>
-
 <script>
 let doc = null;
 let saveTimeout = null;
-let openMenu = null;
+let cmdPaletteOpen = false;
+let cmdSelectedIndex = 0;
+let cmdAfterEid = -1;
+let dragState = null;
+
+const BLOCK_TYPES = [
+  { type: 'paragraph', icon: '¶', label: 'Paragraph', shortcut: 'p' },
+  { type: 'section', icon: '§', label: 'Heading', shortcut: 'h' },
+  { type: 'code_block', icon: '</>', label: 'Code Block', shortcut: 'c' },
+  { type: 'list', icon: '•', label: 'List', shortcut: 'l' },
+  { type: 'blockquote', icon: '❝', label: 'Quote', shortcut: 'q' },
+  { type: 'table', icon: '⊞', label: 'Table', shortcut: 't' },
+  { type: 'admonition', icon: '⚠', label: 'Admonition', shortcut: 'a' },
+  { type: 'thematic_break', icon: '—', label: 'Divider', shortcut: 'd' },
+];
 
 async function api(path, method = 'GET', body = null) {
   const opts = { method, headers: {} };
@@ -257,15 +290,9 @@ function updateStatus() {
       if (b.content) chars += b.content.length;
       if (b.title) chars += b.title.length;
       if (b.children && b.type === 'list') {
-        for (const item of b.children) {
-          if (item.content) chars += item.content.length;
-        }
+        for (const item of b.children) { if (item.content) chars += item.content.length; }
       }
-      if (b.rows) {
-        for (const row of b.rows) {
-          for (const cell of row) chars += cell.length;
-        }
-      }
+      if (b.rows) { for (const row of b.rows) { for (const cell of row) chars += cell.length; } }
     }
   }
   countBlocks(doc.blocks);
@@ -283,14 +310,16 @@ function render() {
   titleInput.value = doc.meta_title >= 0 ? doc.strings[doc.meta_title] : '';
   titleInput.placeholder = 'Untitled Document';
   titleInput.addEventListener('input', () => {
-    if (doc.meta_title < 0) {
-      doc.meta_title = doc.strings.length;
-      doc.strings.push('');
-    }
+    if (doc.meta_title < 0) { doc.meta_title = doc.strings.length; doc.strings.push(''); }
     doc.strings[doc.meta_title] = titleInput.value;
     scheduleSave();
   });
   container.appendChild(titleInput);
+
+  const rootBlocks = doc.blocks.filter(b => {
+    const node = doc.nodes.find(n => n.eid === b.eid);
+    return node && node.parent === -1;
+  });
 
   function renderBlocks(blockList, parentEl, depth) {
     for (const block of blockList) {
@@ -298,37 +327,74 @@ function render() {
       blockEl.className = 'block';
       blockEl.dataset.eid = block.eid;
       blockEl.dataset.type = block.type;
+      blockEl.draggable = true;
+      blockEl.addEventListener('dragstart', (e) => {
+        dragState = { eid: block.eid };
+        blockEl.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      blockEl.addEventListener('dragend', () => {
+        blockEl.classList.remove('dragging');
+        dragState = null;
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      });
+      blockEl.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (dragState && dragState.eid !== block.eid) {
+          blockEl.classList.add('drag-over');
+        }
+      });
+      blockEl.addEventListener('dragleave', () => {
+        blockEl.classList.remove('drag-over');
+      });
+      blockEl.addEventListener('drop', (e) => {
+        e.preventDefault();
+        blockEl.classList.remove('drag-over');
+        if (dragState && dragState.eid !== block.eid) {
+          moveBlock(dragState.eid, block.eid);
+        }
+      });
 
       const actions = document.createElement('div');
       actions.className = 'block-actions';
-      actions.innerHTML = `<button title="Add block below" onclick="showAddMenu(event, ${block.eid})">+</button><button title="Delete" onclick="deleteBlock(${block.eid})">×</button>`;
+      actions.innerHTML = `
+        <button class="drag-handle" title="Drag to reorder">⠿</button>
+        <button title="Move up" onclick="moveBlockUp(${block.eid})">↑</button>
+        <button title="Move down" onclick="moveBlockDown(${block.eid})">↓</button>
+        <button title="Delete" onclick="deleteBlock(${block.eid})">×</button>
+      `;
       blockEl.appendChild(actions);
+
+      const typeSelect = document.createElement('div');
+      typeSelect.className = 'block-type-select';
+      let selectHtml = '<select onchange="convertBlock(' + block.eid + ', this.value)"><option value="">Convert</option>';
+      for (const bt of BLOCK_TYPES) {
+        if (bt.type !== block.type) selectHtml += `<option value="${bt.type}">${bt.label}</option>`;
+      }
+      selectHtml += '</select>';
+      typeSelect.innerHTML = selectHtml;
+      blockEl.appendChild(typeSelect);
 
       if (block.type === 'section') {
         blockEl.classList.add('block-section');
         blockEl.dataset.level = block.level;
+        const header = document.createElement('div');
+        header.style.display = 'flex';
+        header.style.alignItems = 'center';
         const input = document.createElement('input');
         input.value = block.title || '';
         input.placeholder = 'Heading';
         input.addEventListener('input', () => {
-          api('/api/update_block', 'POST', { eid: block.eid, content: input.value }).then(res => {
-            doc = res.document;
-            scheduleSave();
-          });
+          api('/api/update_block', 'POST', { eid: block.eid, content: input.value }).then(res => { doc = res.document; scheduleSave(); });
         });
+        input.addEventListener('keydown', (e) => handleBlockKeydown(e, block));
         const badge = document.createElement('span');
         badge.className = 'level-badge';
         badge.textContent = `H${block.level}`;
         badge.onclick = () => {
           const newLevel = block.level >= 6 ? 1 : block.level + 1;
-          api('/api/update_block', 'POST', { eid: block.eid, level: newLevel }).then(res => {
-            doc = res.document;
-            render();
-          });
+          api('/api/update_block', 'POST', { eid: block.eid, level: newLevel }).then(res => { doc = res.document; render(); });
         };
-        const header = document.createElement('div');
-        header.style.display = 'flex';
-        header.style.alignItems = 'center';
         header.appendChild(input);
         header.appendChild(badge);
         blockEl.appendChild(header);
@@ -353,16 +419,17 @@ function render() {
         blockEl.classList.add('block-paragraph');
         const textarea = document.createElement('textarea');
         textarea.value = block.content || '';
-        textarea.placeholder = 'Type something...';
+        textarea.placeholder = 'Type something... (press / for commands)';
         textarea.rows = 1;
         textarea.addEventListener('input', () => {
           textarea.style.height = 'auto';
           textarea.style.height = textarea.scrollHeight + 'px';
-          api('/api/update_block', 'POST', { eid: block.eid, content: textarea.value }).then(res => {
-            doc = res.document;
-            scheduleSave();
-          });
+          api('/api/update_block', 'POST', { eid: block.eid, content: textarea.value }).then(res => { doc = res.document; scheduleSave(); });
+          if (textarea.value === '/') {
+            openCmdPalette(block.eid);
+          }
         });
+        textarea.addEventListener('keydown', (e) => handleBlockKeydown(e, block));
         setTimeout(() => { textarea.style.height = 'auto'; textarea.style.height = textarea.scrollHeight + 'px'; }, 0);
         blockEl.appendChild(textarea);
 
@@ -373,8 +440,7 @@ function render() {
         const langSelect = document.createElement('select');
         ['','python','javascript','typescript','rust','go','bash','json','yaml','html','css','sql','markdown'].forEach(lang => {
           const opt = document.createElement('option');
-          opt.value = lang;
-          opt.textContent = lang || 'plain';
+          opt.value = lang; opt.textContent = lang || 'plain';
           if (lang === block.language) opt.selected = true;
           langSelect.appendChild(opt);
         });
@@ -383,7 +449,6 @@ function render() {
         });
         header.appendChild(langSelect);
         blockEl.appendChild(header);
-
         const textarea = document.createElement('textarea');
         textarea.value = block.content || '';
         textarea.placeholder = 'Code...';
@@ -426,12 +491,7 @@ function render() {
         for (const item of block.children || []) {
           const itemEl = document.createElement('div');
           itemEl.className = 'list-item';
-          const bullet = document.createElement('span');
-          bullet.className = 'bullet';
-          if (block.list_type === 'ordered') {
-            const idx = block.children.indexOf(item) + 1;
-            bullet.textContent = idx + '.';
-          } else if (block.list_type === 'checklist') {
+          if (block.list_type === 'checklist') {
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.checked = item.checked || false;
@@ -440,10 +500,11 @@ function render() {
             });
             itemEl.appendChild(cb);
           } else {
-            bullet.textContent = '•';
+            const bullet = document.createElement('span');
+            bullet.className = 'bullet';
+            bullet.textContent = block.list_type === 'ordered' ? (block.children.indexOf(item) + 1) + '.' : '•';
+            itemEl.appendChild(bullet);
           }
-          if (block.list_type !== 'checklist') itemEl.appendChild(bullet);
-
           const textarea = document.createElement('textarea');
           textarea.value = item.content || '';
           textarea.placeholder = 'List item...';
@@ -453,14 +514,30 @@ function render() {
             textarea.style.height = textarea.scrollHeight + 'px';
             api('/api/update_list_item', 'POST', { eid: item.eid, content: textarea.value }).then(res => { doc = res.document; scheduleSave(); });
           });
+          textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              const checked = block.list_type === 'checklist' ? false : undefined;
+              api('/api/add_list_item', 'POST', { list_eid: block.eid, content: '', checked }).then(res => {
+                doc = res.document;
+                render();
+                setTimeout(() => {
+                  const items = document.querySelectorAll(`[data-eid="${block.eid}"] .list-item textarea`);
+                  if (items.length) items[items.length - 1].focus();
+                }, 50);
+              });
+            }
+            if (e.key === 'Backspace' && textarea.value === '') {
+              e.preventDefault();
+              api('/api/delete_list_item', 'POST', { eid: item.eid }).then(res => { doc = res.document; render(); });
+            }
+          });
           setTimeout(() => { textarea.style.height = 'auto'; textarea.style.height = textarea.scrollHeight + 'px'; }, 0);
           itemEl.appendChild(textarea);
-
           const itemActions = document.createElement('span');
           itemActions.className = 'item-actions';
-          itemActions.innerHTML = `<button class="btn btn-sm btn-danger" onclick="deleteListItem(${item.eid}, ${block.eid})">×</button>`;
+          itemActions.innerHTML = `<button class="btn btn-sm btn-danger" onclick="deleteListItem(${item.eid})">×</button>`;
           itemEl.appendChild(itemActions);
-
           blockEl.appendChild(itemEl);
         }
 
@@ -475,6 +552,7 @@ function render() {
           textarea.style.height = textarea.scrollHeight + 'px';
           api('/api/update_block', 'POST', { eid: block.eid, content: textarea.value }).then(res => { doc = res.document; scheduleSave(); });
         });
+        textarea.addEventListener('keydown', (e) => handleBlockKeydown(e, block));
         setTimeout(() => { textarea.style.height = 'auto'; textarea.style.height = textarea.scrollHeight + 'px'; }, 0);
         blockEl.appendChild(textarea);
 
@@ -482,24 +560,25 @@ function render() {
         blockEl.classList.add('block-table');
         const table = document.createElement('table');
         const rows = block.rows || [];
+        const numCols = rows.length > 0 ? rows[0].length : 0;
         rows.forEach((row, ri) => {
           const tr = document.createElement('tr');
           row.forEach((cell, ci) => {
-            const td = document.createElement('td');
             const input = document.createElement('input');
             input.value = cell;
             input.placeholder = ri === 0 ? 'Header' : 'Cell';
+            input.addEventListener('input', () => {
+              api('/api/update_table_cell', 'POST', { cell_eid: findCellEid(block, ri, ci), content: input.value }).then(res => { doc = res.document; scheduleSave(); });
+            });
             if (ri === 0) {
               const th = document.createElement('th');
               th.appendChild(input);
               tr.appendChild(th);
             } else {
+              const td = document.createElement('td');
               td.appendChild(input);
               tr.appendChild(td);
             }
-            input.addEventListener('input', () => {
-              api('/api/update_table_cell', 'POST', { cell_eid: findCellEid(block, ri, ci), content: input.value }).then(res => { doc = res.document; scheduleSave(); });
-            });
           });
           const tdActions = document.createElement('td');
           tdActions.style.width = '40px';
@@ -509,15 +588,15 @@ function render() {
           table.appendChild(tr);
         });
         blockEl.appendChild(table);
-        const addRowBtn = document.createElement('button');
-        addRowBtn.className = 'btn btn-sm';
-        addRowBtn.textContent = '+ row';
-        addRowBtn.style.marginTop = '4px';
-        addRowBtn.onclick = () => {
-          const numCols = rows.length > 0 ? rows[0].length : 2;
-          api('/api/add_table_row', 'POST', { table_eid: block.eid, num_cols: numCols }).then(res => { doc = res.document; render(); });
-        };
-        blockEl.appendChild(addRowBtn);
+        const tableActions = document.createElement('div');
+        tableActions.style.display = 'flex';
+        tableActions.style.gap = '4px';
+        tableActions.style.marginTop = '4px';
+        tableActions.innerHTML = `
+          <button class="btn btn-sm" onclick="addTableRow(${block.eid}, ${numCols || 2})">+ row</button>
+          <button class="btn btn-sm" onclick="addTableColumn(${block.eid})">+ column</button>
+        `;
+        blockEl.appendChild(tableActions);
 
       } else if (block.type === 'admonition') {
         blockEl.classList.add('block-admonition');
@@ -529,8 +608,7 @@ function render() {
         const typeSelect = document.createElement('select');
         ['note','tip','important','warning','caution'].forEach(t => {
           const opt = document.createElement('option');
-          opt.value = t;
-          opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+          opt.value = t; opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
           if (t === block.admon_type) opt.selected = true;
           typeSelect.appendChild(opt);
         });
@@ -539,7 +617,6 @@ function render() {
         });
         header.appendChild(typeSelect);
         blockEl.appendChild(header);
-
         const textarea = document.createElement('textarea');
         textarea.value = block.content || '';
         textarea.placeholder = 'Admonition text...';
@@ -549,15 +626,15 @@ function render() {
           textarea.style.height = textarea.scrollHeight + 'px';
           api('/api/update_block', 'POST', { eid: block.eid, content: textarea.value }).then(res => { doc = res.document; scheduleSave(); });
         });
+        textarea.addEventListener('keydown', (e) => handleBlockKeydown(e, block));
         setTimeout(() => { textarea.style.height = 'auto'; textarea.style.height = textarea.scrollHeight + 'px'; }, 0);
         blockEl.appendChild(textarea);
 
       } else if (block.type === 'thematic_break') {
         blockEl.classList.add('block-hr');
         blockEl.innerHTML += '<hr>';
-
       } else {
-        blockEl.innerHTML = `<div style="padding:8px;color:#9ca3af;font-size:13px">Unknown block: ${block.type}</div>`;
+        blockEl.innerHTML = `<div style="padding:8px;color:#9ca3af;font-size:13px">Unknown: ${block.type}</div>`;
       }
 
       parentEl.appendChild(blockEl);
@@ -569,10 +646,6 @@ function render() {
     }
   }
 
-  const rootBlocks = doc.blocks.filter(b => {
-    const node = doc.nodes.find(n => n.eid === b.eid);
-    return node && node.parent === -1;
-  });
   renderBlocks(rootBlocks, container, 0);
 
   const addRoot = document.createElement('div');
@@ -584,13 +657,32 @@ function render() {
   updateStatus();
 }
 
+function handleBlockKeydown(e, block) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    api('/api/insert_block_after', 'POST', { after: block.eid, type: 'paragraph' }).then(res => {
+      doc = res.document;
+      render();
+      setTimeout(() => {
+        const newBlock = document.querySelector(`[data-eid="${res.eid}"] textarea`);
+        if (newBlock) newBlock.focus();
+      }, 50);
+    });
+  }
+  if (e.key === 'Backspace' && e.target.value === '') {
+    e.preventDefault();
+    deleteBlock(block.eid);
+  }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    document.execCommand('insertText', false, '    ');
+  }
+}
+
 function findCellEid(tableBlock, rowIdx, colIdx) {
-  const tableNode = doc.nodes.find(n => n.eid === tableBlock.eid);
-  if (!tableNode) return -1;
   const rowNodes = doc.nodes.filter(n => n.parent === tableBlock.eid && n.type === 'table_row');
   if (rowIdx >= rowNodes.length) return -1;
-  const rowNode = rowNodes[rowIdx];
-  const cellNodes = doc.nodes.filter(n => n.parent === rowNode.eid && n.type === 'table_cell');
+  const cellNodes = doc.nodes.filter(n => n.parent === rowNodes[rowIdx].eid && n.type === 'table_cell');
   if (colIdx >= cellNodes.length) return -1;
   return cellNodes[colIdx].eid;
 }
@@ -602,14 +694,13 @@ async function deleteBlock(eid) {
   render();
 }
 
-async function deleteListItem(eid, listEid) {
+async function deleteListItem(eid) {
   const res = await api('/api/delete_list_item', 'POST', { eid });
   doc = res.document;
   render();
 }
 
 async function deleteTableRow(tableEid, rowIdx) {
-  const tableNode = doc.nodes.find(n => n.eid === tableEid);
   const rowNodes = doc.nodes.filter(n => n.parent === tableEid && n.type === 'table_row');
   if (rowIdx < rowNodes.length) {
     const res = await api('/api/delete_table_row', 'POST', { row_eid: rowNodes[rowIdx].eid });
@@ -618,64 +709,152 @@ async function deleteTableRow(tableEid, rowIdx) {
   }
 }
 
-const BLOCK_TYPES = [
-  { type: 'paragraph', icon: '¶', label: 'Paragraph' },
-  { type: 'section', icon: '§', label: 'Heading' },
-  { type: 'code_block', icon: '</>', label: 'Code Block' },
-  { type: 'list', icon: '•', label: 'List' },
-  { type: 'blockquote', icon: '❝', label: 'Quote' },
-  { type: 'table', icon: '⊞', label: 'Table' },
-  { type: 'admonition', icon: '⚠', label: 'Admonition' },
-  { type: 'thematic_break', icon: '—', label: 'Divider' },
-];
-
-function showAddMenu(event, afterEid) {
-  event.stopPropagation();
-  const menu = document.getElementById('add-menu');
-  menu.innerHTML = '';
-  menu.style.display = 'block';
-
-  const rect = event.target.getBoundingClientRect();
-  menu.style.left = rect.left + 'px';
-  menu.style.top = (rect.bottom + 4) + 'px';
-
-  for (const bt of BLOCK_TYPES) {
-    const item = document.createElement('div');
-    item.className = 'menu-item';
-    item.innerHTML = `<span class="icon">${bt.icon}</span>${bt.label}`;
-    item.onclick = () => {
-      insertBlock(bt.type, afterEid);
-      menu.style.display = 'none';
-      openMenu = null;
-    };
-    menu.appendChild(item);
-  }
-  openMenu = menu;
+async function addTableRow(tableEid, numCols) {
+  const res = await api('/api/add_table_row', 'POST', { table_eid: tableEid, num_cols: numCols || 2 });
+  doc = res.document;
+  render();
 }
 
-document.addEventListener('click', (e) => {
-  if (openMenu && !openMenu.contains(e.target)) {
-    openMenu.style.display = 'none';
-    openMenu = null;
-  }
-});
+async function addTableColumn(tableEid) {
+  const res = await api('/api/add_table_column', 'POST', { table_eid: tableEid });
+  doc = res.document;
+  render();
+}
 
-async function insertBlock(type, afterEid) {
-  const params = { type, after: afterEid === -1 ? null : afterEid };
-  if (type === 'code_block') { params.language = 'python'; params.content = ''; }
-  if (type === 'section') { params.level = 1; params.content = ''; }
-  if (type === 'list') { params.list_type = 'unordered'; }
-  if (type === 'admonition') { params.admon_type = 'note'; }
-  const res = await api('/api/insert_block', 'POST', params);
+async function moveBlockUp(eid) {
+  const res = await api('/api/move_block', 'POST', { eid, direction: 'up' });
+  doc = res.document;
+  render();
+}
+
+async function moveBlockDown(eid) {
+  const res = await api('/api/move_block', 'POST', { eid, direction: 'down' });
+  doc = res.document;
+  render();
+}
+
+async function moveBlock(fromEid, toEid) {
+  const fromNode = doc.nodes.find(n => n.eid === fromEid);
+  const toNode = doc.nodes.find(n => n.eid === toEid);
+  if (!fromNode || !toNode) return;
+  if (fromNode.parent !== toNode.parent) return;
+  const siblings = doc.nodes.filter(n => n.parent === fromNode.parent).sort((a, b) => {
+    let idxA = 0, idxB = 0, cur = fromNode.parent === -1 ? doc.root_first : doc.nodes.find(n => n.eid === fromNode.parent)?.first_child;
+    let i = 0;
+    while (cur !== -1) { if (cur === fromEid) idxA = i; if (cur === toEid) idxB = i; cur = doc.nodes.find(n => n.eid === cur)?.next || -1; i++; }
+    return idxA - idxB;
+  });
+  const fromIdx = siblings.findIndex(n => n.eid === fromEid);
+  const toIdx = siblings.findIndex(n => n.eid === toEid);
+  if (fromIdx < toIdx) {
+    await api('/api/move_block', 'POST', { eid: fromEid, direction: 'down' });
+  } else {
+    await api('/api/move_block', 'POST', { eid: fromEid, direction: 'up' });
+  }
+  const res = await api('/document');
+  doc = res;
+  render();
+}
+
+async function convertBlock(eid, newType) {
+  if (!newType) return;
+  const res = await api('/api/convert_block', 'POST', { eid, new_type: newType });
   doc = res.document;
   render();
   setTimeout(() => {
-    const newBlock = document.querySelector(`[data-eid="${res.eid}"]`);
-    if (newBlock) {
-      const input = newBlock.querySelector('input, textarea');
-      if (input) input.focus();
-    }
+    const block = document.querySelector(`[data-eid="${res.eid}"] input, [data-eid="${res.eid}"] textarea`);
+    if (block) block.focus();
   }, 50);
+}
+
+function showAddMenu(event, afterEid) {
+  event.stopPropagation();
+  cmdAfterEid = afterEid;
+  openCmdPalette(afterEid);
+}
+
+function openCmdPalette(afterEid) {
+  cmdAfterEid = afterEid;
+  cmdPaletteOpen = true;
+  cmdSelectedIndex = 0;
+  const palette = document.getElementById('cmd-palette');
+  palette.classList.add('active');
+  const input = document.getElementById('cmd-input');
+  input.value = '';
+  input.focus();
+  renderCmdList('');
+}
+
+function closeCmdPalette() {
+  cmdPaletteOpen = false;
+  document.getElementById('cmd-palette').classList.remove('active');
+}
+
+function renderCmdList(filter) {
+  const list = document.getElementById('cmd-list');
+  list.innerHTML = '';
+  const filtered = BLOCK_TYPES.filter(bt =>
+    bt.label.toLowerCase().includes(filter.toLowerCase()) || bt.type.includes(filter.toLowerCase())
+  );
+  filtered.forEach((bt, i) => {
+    const item = document.createElement('div');
+    item.className = 'cmd-item' + (i === cmdSelectedIndex ? ' selected' : '');
+    item.innerHTML = `<span class="icon">${bt.icon}</span>${bt.label} <span style="margin-left:auto;color:#9ca3af;font-size:11px">${bt.shortcut}</span>`;
+    item.onclick = () => { insertBlockFromCmd(bt.type); };
+    list.appendChild(item);
+  });
+}
+
+async function insertBlockFromCmd(type) {
+  closeCmdPalette();
+  const params = { after: cmdAfterEid === -1 ? null : cmdAfterEid, type };
+  if (type === 'code_block') { params.language = 'python'; }
+  if (type === 'section') { params.level = 1; }
+  if (type === 'list') { params.list_type = 'unordered'; }
+  if (type === 'admonition') { params.admon_type = 'note'; }
+  const res = await api('/api/insert_block_after', 'POST', params);
+  doc = res.document;
+  render();
+  setTimeout(() => {
+    const newBlock = document.querySelector(`[data-eid="${res.eid}"] input, [data-eid="${res.eid}"] textarea`);
+    if (newBlock) newBlock.focus();
+  }, 50);
+}
+
+document.getElementById('cmd-input').addEventListener('input', (e) => {
+  cmdSelectedIndex = 0;
+  renderCmdList(e.target.value);
+});
+
+document.getElementById('cmd-input').addEventListener('keydown', (e) => {
+  const items = document.querySelectorAll('#cmd-list .cmd-item');
+  if (e.key === 'ArrowDown') { e.preventDefault(); cmdSelectedIndex = Math.min(cmdSelectedIndex + 1, items.length - 1); renderCmdList(e.target.value); }
+  if (e.key === 'ArrowUp') { e.preventDefault(); cmdSelectedIndex = Math.max(cmdSelectedIndex - 1, 0); renderCmdList(e.target.value); }
+  if (e.key === 'Enter') { e.preventDefault(); if (items[cmdSelectedIndex]) items[cmdSelectedIndex].click(); }
+  if (e.key === 'Escape') closeCmdPalette();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (cmdPaletteOpen) return;
+  if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+    const active = document.activeElement;
+    if (active && (active.tagName === 'TEXTAREA' || active.tagName === 'INPUT')) {
+      return;
+    }
+    openCmdPalette(-1);
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); doUndo(); }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); doRedo(); }
+});
+
+async function doUndo() {
+  const res = await api('/api/undo', 'POST');
+  if (res.document) { doc = res.document; render(); }
+}
+
+async function doRedo() {
+  const res = await api('/api/redo', 'POST');
+  if (res.document) { doc = res.document; render(); }
 }
 
 async function newDoc() {
@@ -703,46 +882,28 @@ function exportMarkdown() {
   if (doc.meta_title >= 0) md += `# ${doc.strings[doc.meta_title]}\n\n`;
   function renderBlock(block, depth) {
     const indent = '  '.repeat(depth);
-    if (block.type === 'section') {
-      md += `${'#'.repeat(block.level)} ${block.title}\n\n`;
-    } else if (block.type === 'paragraph') {
-      md += `${indent}${block.content}\n\n`;
-    } else if (block.type === 'code_block') {
-      md += `${indent}\`\`\`${block.language}\n${block.content}\n${indent}\`\`\`\n\n`;
-    } else if (block.type === 'list') {
+    if (block.type === 'section') { md += `${'#'.repeat(block.level)} ${block.title}\n\n`; }
+    else if (block.type === 'paragraph') { md += `${indent}${block.content}\n\n`; }
+    else if (block.type === 'code_block') { md += `${indent}\`\`\`${block.language}\n${block.content}\n${indent}\`\`\`\n\n`; }
+    else if (block.type === 'list') {
       const bullet = block.list_type === 'ordered' ? '1.' : '-';
       for (const item of (block.children || [])) {
         const prefix = block.list_type === 'checklist' ? (item.checked ? '[x]' : '[ ]') : bullet;
         md += `${indent}${prefix} ${item.content}\n`;
       }
       md += '\n';
-    } else if (block.type === 'blockquote') {
-      md += `${indent}> ${block.content}\n\n`;
-    } else if (block.type === 'table') {
-      for (const row of (block.rows || [])) {
-        md += `| ${row.join(' | ')} |\n`;
-      }
-      md += '\n';
-    } else if (block.type === 'admonition') {
-      md += `${indent}> [!${block.admon_type.toUpperCase()}]\n> ${block.content}\n\n`;
-    } else if (block.type === 'thematic_break') {
-      md += `${indent}---\n\n`;
     }
+    else if (block.type === 'blockquote') { md += `${indent}> ${block.content}\n\n`; }
+    else if (block.type === 'table') { for (const row of (block.rows || [])) { md += `| ${row.join(' | ')} |\n`; } md += '\n'; }
+    else if (block.type === 'admonition') { md += `${indent}> [!${block.admon_type.toUpperCase()}]\n> ${block.content}\n\n`; }
+    else if (block.type === 'thematic_break') { md += `${indent}---\n\n`; }
   }
-  const rootBlocks = doc.blocks.filter(b => {
-    const node = doc.nodes.find(n => n.eid === b.eid);
-    return node && node.parent === -1;
-  });
+  const rootBlocks = doc.blocks.filter(b => { const node = doc.nodes.find(n => n.eid === b.eid); return node && node.parent === -1; });
   for (const block of rootBlocks) {
     renderBlock(block, 0);
     if (block.type === 'section') {
-      const childBlocks = doc.blocks.filter(b => {
-        const node = doc.nodes.find(n => n.eid === b.eid);
-        return node && node.parent === block.eid;
-      });
-      for (const child of childBlocks) {
-        renderBlock(child, 1);
-      }
+      const childBlocks = doc.blocks.filter(b => { const node = doc.nodes.find(n => n.eid === b.eid); return node && node.parent === block.eid; });
+      for (const child of childBlocks) renderBlock(child, 1);
     }
   }
   const blob = new Blob([md], { type: 'text/markdown' });
@@ -771,9 +932,8 @@ async function commit() {
 async function runDiff() {
   const res = await api('/api/diff');
   const result = document.getElementById('diff-result');
-  if (res.is_clean) {
-    result.innerHTML = '<p style="color:#9ca3af">No changes since last commit.</p>';
-  } else {
+  if (res.is_clean) { result.innerHTML = '<p style="color:#9ca3af">No changes since last commit.</p>'; }
+  else {
     let html = '';
     for (const op of res.ops) {
       let cls = 'diff-modified';
@@ -835,9 +995,7 @@ async function loadLog() {
   list.innerHTML = html || '<p style="color:#9ca3af">No commits</p>';
 }
 
-function escapeHtml(text) {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+function escapeHtml(text) { return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
 window.addEventListener('DOMContentLoaded', loadDoc);
 </script>
