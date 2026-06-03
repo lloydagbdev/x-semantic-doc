@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Semantic Document Editor</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eee; height: 100vh; display: flex; flex-direction: column; }
+header { background: #16213e; padding: 8px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #0f3460; }
+header h1 { font-size: 16px; color: #e94560; }
+.btn { background: #0f3460; color: #eee; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.btn:hover { background: #e94560; }
+.btn-sm { padding: 4px 8px; font-size: 12px; }
+.container { display: flex; flex: 1; overflow: hidden; }
+.sidebar { width: 320px; background: #16213e; border-right: 1px solid #0f3460; display: flex; flex-direction: column; }
+.sidebar-header { padding: 12px; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; align-items: center; }
+.sidebar-header h2 { font-size: 14px; color: #aaa; }
+.tree { flex: 1; overflow-y: auto; padding: 8px; }
+.tree-node { padding: 4px 8px; cursor: pointer; border-radius: 4px; margin: 2px 0; display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.tree-node:hover { background: #0f3460; }
+.tree-node.selected { background: #e94560; color: #fff; }
+.tree-node .icon { width: 16px; text-align: center; }
+.tree-node .label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-node .depth { width: 12px; }
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.editor { flex: 1; padding: 20px; overflow-y: auto; }
+.editor-title { font-size: 24px; font-weight: bold; margin-bottom: 16px; color: #e94560; }
+.editor-section { margin-bottom: 16px; }
+.editor-label { font-size: 12px; color: #888; margin-bottom: 4px; text-transform: uppercase; }
+.editor-input { width: 100%; background: #0f3460; border: 1px solid #16213e; color: #eee; padding: 8px 12px; border-radius: 4px; font-size: 14px; }
+.editor-input:focus { outline: none; border-color: #e94560; }
+textarea.editor-input { min-height: 120px; font-family: monospace; resize: vertical; }
+.editor-actions { display: flex; gap: 8px; margin-top: 16px; }
+.panel { background: #16213e; border-top: 1px solid #0f3460; max-height: 200px; overflow-y: auto; }
+.panel-header { padding: 8px 12px; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+.panel-header h3 { font-size: 13px; color: #aaa; }
+.panel-content { padding: 8px 12px; }
+.log-entry { padding: 6px 8px; border-bottom: 1px solid #0f3460; font-size: 12px; }
+.log-entry .hash { color: #e94560; font-family: monospace; }
+.log-entry .message { color: #eee; }
+.log-entry .author { color: #888; }
+.log-entry .date { color: #666; }
+.diff-entry { padding: 4px 8px; font-family: monospace; font-size: 12px; }
+.diff-added { color: #4ade80; }
+.diff-removed { color: #f87171; }
+.diff-modified { color: #fbbf24; }
+.modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 100; }
+.modal.active { display: flex; }
+.modal-content { background: #16213e; padding: 20px; border-radius: 8px; min-width: 400px; max-width: 600px; }
+.modal-content h3 { margin-bottom: 12px; color: #e94560; }
+.modal-content input { width: 100%; margin-bottom: 12px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; background: #0f3460; color: #aaa; }
+.badge-block { background: #1e3a5f; color: #60a5fa; }
+.badge-inline { background: #3b1e5f; color: #c084fc; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Semantic Doc Editor</h1>
+  <button class="btn" onclick="newDocument()">New</button>
+  <button class="btn" onclick="showLoadModal()">Load</button>
+  <button class="btn" onclick="showCommitModal()">Commit</button>
+  <button class="btn" onclick="showDiffModal()">Diff</button>
+  <button class="btn" onclick="showBranchModal()">Branch</button>
+  <button class="btn" onclick="showLog()">Log</button>
+  <span id="branch-badge" class="badge">main</span>
+</header>
+<div class="container">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>Document Tree</h2>
+      <button class="btn btn-sm" onclick="addNode()">+ Add</button>
+    </div>
+    <div class="tree" id="tree"></div>
+  </div>
+  <div class="main">
+    <div class="editor" id="editor">
+      <div class="editor-title" id="editor-title">Select a node to edit</div>
+      <div id="editor-fields"></div>
+      <div class="editor-actions" id="editor-actions" style="display:none">
+        <button class="btn" onclick="saveNode()">Save</button>
+        <button class="btn" onclick="deleteNode()">Delete</button>
+      </div>
+    </div>
+    <div class="panel" id="bottom-panel" style="display:none">
+      <div class="panel-header" onclick="togglePanel()">
+        <h3 id="panel-title">Log</h3>
+        <span id="panel-toggle">▼</span>
+      </div>
+      <div class="panel-content" id="panel-content"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="commit-modal">
+  <div class="modal-content">
+    <h3>Commit Changes</h3>
+    <input class="editor-input" id="commit-message" placeholder="Commit message..." />
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('commit-modal')">Cancel</button>
+      <button class="btn" onclick="commit()">Commit</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="load-modal">
+  <div class="modal-content">
+    <h3>Load Document</h3>
+    <textarea class="editor-input" id="load-content" placeholder="Paste JSON or Markdown content..."></textarea>
+    <div style="margin-bottom:12px">
+      <label><input type="radio" name="format" value="json" checked> JSON</label>
+      <label><input type="radio" name="format" value="markdown"> Markdown</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('load-modal')">Cancel</button>
+      <button class="btn" onclick="loadDocument()">Load</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="diff-modal">
+  <div class="modal-content" style="max-width:700px">
+    <h3>Diff</h3>
+    <div style="margin-bottom:12px;display:flex;gap:8px">
+      <input class="editor-input" id="diff-commit1" placeholder="Commit 1 (hash or empty for current)" style="flex:1" />
+      <input class="editor-input" id="diff-commit2" placeholder="Commit 2 (hash or empty for current)" style="flex:1" />
+    </div>
+    <div id="diff-result" style="max-height:400px;overflow-y:auto"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('diff-modal')">Close</button>
+      <button class="btn" onclick="runDiff()">Compare</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="branch-modal">
+  <div class="modal-content">
+    <h3>Branches</h3>
+    <div id="branch-list" style="margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input class="editor-input" id="branch-name" placeholder="New branch name..." style="flex:1" />
+      <button class="btn" onclick="createBranch()">Create</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('branch-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let document = null;
+let selectedNode = null;
+let selectedPath = [];
+
+const BLOCK_ICONS = {
+  section: '§', paragraph: '¶', code_block: '</>', list: '•', list_item: '◦',
+  blockquote: '❝', table: '⊞', table_row: '▬', table_cell: '▫',
+  thematic_break: '—', admonition: '⚠'
+};
+const INLINE_ICONS = {
+  text: 'T', emphasis: 'I', strong: 'B', inline_code: '`',
+  link: '🔗', image: '🖼', line_break: '↵'
+};
+
+async function api(path, method = 'GET', body = null) {
+  const opts = { method, headers: {} };
+  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  const res = await fetch(`/api${path}`, opts);
+  return res.json();
+}
+
+async function loadDoc() {
+  document = await api('/document');
+  selectedNode = null;
+  selectedPath = [];
+  renderTree();
+  renderEditor();
+  updateBranchBadge();
+}
+
+function renderTree() {
+  const tree = document.getElementById('tree');
+  tree.innerHTML = '';
+  const nodes = document.nodes;
+  const strings = document.strings;
+  function getText(eid) {
+    const children = nodes.filter(n => n.parent === eid);
+    let text = '';
+    for (const child of children) {
+      if (child.type === 'text' || child.type === 'inline_code') {
+        const idx = document.components.inline_text?.[String(child.eid) ?? child.eid];
+        if (idx != null && idx >= 0 && strings[idx]) text += strings[idx] + ' ';
+      }
+    }
+    return text.trim() || '(empty)';
+  }
+  function getNodeLabel(node) {
+    const type = node.type;
+    if (type === 'section') {
+      const level = document.components.block_level?.[String(node.eid) ?? node.eid] || 1;
+      return `H${level}: ${getText(node.eid)}`;
+    }
+    if (type === 'code_block') {
+      const lang = document.components.block_language?.[String(node.eid) ?? node.eid];
+      const langStr = (lang != null && lang >= 0) ? strings[lang] : '';
+      return `Code (${langStr || 'plain'})`;
+    }
+    if (type === 'paragraph' || type === 'list_item' || type === 'table_cell') {
+      return getText(node.eid);
+    }
+    if (type === 'list') {
+      const lt = document.components.block_list_type?.[String(node.eid) ?? node.eid];
+      return `List (${lt || 'unordered'})`;
+    }
+    if (type === 'admonition') {
+      const at = document.components.block_admon_type?.[String(node.eid) ?? node.eid];
+      return `Admonition (${at || 'note'})`;
+    }
+    return type;
+  }
+  function getDepth(eid) {
+    let d = 0, cur = nodes.find(n => n.eid === eid);
+    while (cur && cur.parent !== -1) { d++; cur = nodes.find(n => n.eid === cur.parent); }
+    return d;
+  }
+  const rootNodes = nodes.filter(n => n.parent === -1);
+  function renderNodeList(parentEid, depth) {
+    const children = nodes.filter(n => n.parent === parentEid);
+    for (const node of children) {
+      const div = document.createElement('div');
+      div.className = 'tree-node' + (selectedNode === node.eid ? ' selected' : '');
+      div.innerHTML = `<span class="depth">${' '.repeat(depth * 2)}</span><span class="icon">${BLOCK_ICONS[node.type] || INLINE_ICONS[node.type] || '?'}</span><span class="label">${getNodeLabel(node)}</span><span class="badge badge-${node.type.includes('_') && !['code_block','list_item','table_row','table_cell'].includes(node.type) ? 'inline' : 'block'}">${node.type}</span>`;
+      div.onclick = () => selectNode(node.eid);
+      tree.appendChild(div);
+      renderNodeList(node.eid, depth + 1);
+    }
+  }
+  renderNodeList(-1, 0);
+}
+
+function selectNode(eid) {
+  selectedNode = eid;
+  renderTree();
+  renderEditor();
+}
+
+function renderEditor() {
+  const title = document.getElementById('editor-title');
+  const fields = document.getElementById('editor-fields');
+  const actions = document.getElementById('editor-actions');
+  if (selectedNode == null) {
+    title.textContent = document.meta_title >= 0 ? document.strings[document.meta_title] : 'Untitled';
+    fields.innerHTML = '<p style="color:#888">Select a node from the tree to edit</p>';
+    actions.style.display = 'none';
+    return;
+  }
+  const node = document.nodes.find(n => n.eid === selectedNode);
+  if (!node) return;
+  title.textContent = node.type;
+  fields.innerHTML = '';
+  const comp = document.components;
+  function addField(label, value, type = 'text') {
+    const div = document.createElement('div');
+    div.className = 'editor-section';
+    div.innerHTML = `<div class="editor-label">${label}</div>`;
+    if (type === 'textarea') {
+      const ta = document.createElement('textarea');
+      ta.className = 'editor-input';
+      ta.value = value;
+      ta.dataset.field = label;
+      div.appendChild(ta);
+    } else {
+      const input = document.createElement('input');
+      input.className = 'editor-input';
+      input.value = value;
+      input.dataset.field = label;
+      div.appendChild(input);
+    }
+    fields.appendChild(div);
+  }
+  if (node.type === 'text' || node.type === 'inline_code') {
+    const idx = comp.inline_text?.[String(node.eid) ?? node.eid];
+    const text = (idx != null && idx >= 0) ? document.strings[idx] : '';
+    addField('Content', text, node.type === 'text' ? 'textarea' : 'text');
+  }
+  if (node.type === 'code_block') {
+    const langIdx = comp.block_language?.[String(node.eid) ?? node.eid];
+    const lang = (langIdx != null && langIdx >= 0) ? document.strings[langIdx] : '';
+    const contentIdx = comp.block_content?.[String(node.eid) ?? node.eid];
+    const content = (contentIdx != null && contentIdx >= 0) ? document.strings[contentIdx] : '';
+    addField('Language', lang);
+    addField('Content', content, 'textarea');
+  }
+  if (node.type === 'section') {
+    const level = comp.block_level?.[String(node.eid) ?? node.eid] || 1;
+    const text = getText(node.eid);
+    addField('Level', String(level));
+    addField('Title', text);
+  }
+  if (node.type === 'paragraph' || node.type === 'list_item' || node.type === 'table_cell') {
+    const text = getText(node.eid);
+    addField('Content', text, 'textarea');
+  }
+  if (node.type === 'link') {
+    const urlIdx = comp.inline_url?.[String(node.eid) ?? node.eid];
+    const url = (urlIdx != null && urlIdx >= 0) ? document.strings[urlIdx] : '';
+    const titleIdx = comp.inline_title?.[String(node.eid) ?? node.eid];
+    const title = (titleIdx != null && titleIdx >= 0) ? document.strings[titleIdx] : '';
+    addField('URL', url);
+    addField('Title', title);
+  }
+  actions.style.display = 'flex';
+}
+
+function getText(eid) {
+  const children = document.nodes.filter(n => n.parent === eid);
+  let text = '';
+  for (const child of children) {
+    if (child.type === 'text' || child.type === 'inline_code') {
+      const idx = document.components.inline_text?.[String(child.eid) ?? child.eid];
+      if (idx != null && idx >= 0 && document.strings[idx]) text += document.strings[idx] + ' ';
+    }
+  }
+  return text.trim();
+}
+
+async function saveNode() {
+  const inputs = document.querySelectorAll('#editor-fields input, #editor-fields textarea');
+  for (const input of inputs) {
+    const field = input.dataset.field;
+    const value = input.value;
+    if (field === 'Content') {
+      const node = document.nodes.find(n => n.eid === selectedNode);
+      if (node.type === 'text' || node.type === 'inline_code') {
+        let idx = document.components.inline_text?.[String(node.eid) ?? node.eid];
+        if (idx == null || idx < 0) {
+          idx = document.strings.length;
+          document.strings.push('');
+          if (!document.components.inline_text) document.components.inline_text = {};
+        }
+        document.components.inline_text[String(node.eid) ?? node.eid] = idx;
+        document.strings[idx] = value;
+      }
+      if (node.type === 'paragraph' || node.type === 'list_item' || node.type === 'table_cell') {
+        let textChild = document.nodes.find(n => n.parent === node.eid && (n.type === 'text' || n.type === 'inline_code'));
+        if (!textChild) {
+          textChild = { eid: document.nodes.length, type: 'text', parent: node.eid, prev: -1, next: -1, first_child: -1 };
+          document.nodes.push(textChild);
+          if (!document.components.inline_text) document.components.inline_text = {};
+          document.components.inline_text[String(textChild.eid)] = document.strings.length;
+          document.strings.push(value);
+        } else {
+          const idx = document.components.inline_text?.[String(textChild.eid) ?? textChild.eid];
+          if (idx != null && idx >= 0) {
+            document.strings[idx] = value;
+          }
+        }
+      }
+      if (node.type === 'code_block') {
+        let contentIdx = document.components.block_content?.[String(node.eid) ?? node.eid];
+        if (contentIdx == null || contentIdx < 0) {
+          contentIdx = document.strings.length;
+          document.strings.push('');
+          if (!document.components.block_content) document.components.block_content = {};
+        }
+        document.components.block_content[String(node.eid) ?? node.eid] = contentIdx;
+        document.strings[contentIdx] = value;
+      }
+    }
+    if (field === 'Language') {
+      const node = document.nodes.find(n => n.eid === selectedNode);
+      let langIdx = document.components.block_language?.[String(node.eid) ?? node.eid];
+      if (langIdx == null || langIdx < 0) {
+        langIdx = document.strings.length;
+        document.strings.push('');
+        if (!document.components.block_language) document.components.block_language = {};
+      }
+      document.components.block_language[String(node.eid) ?? node.eid] = langIdx;
+      document.strings[langIdx] = value;
+    }
+    if (field === 'Level') {
+      const node = document.nodes.find(n => n.eid === selectedNode);
+      if (document.components.block_level) {
+        document.components.block_level[String(node.eid) ?? node.eid] = parseInt(value) || 1;
+      }
+    }
+    if (field === 'Title') {
+      const node = document.nodes.find(n => n.eid === selectedNode);
+      if (node.type === 'section') {
+        let textChild = document.nodes.find(n => n.parent === node.eid && n.type === 'text');
+        if (!textChild) {
+          textChild = { eid: document.nodes.length, type: 'text', parent: node.eid, prev: -1, next: -1, first_child: -1 };
+          document.nodes.push(textChild);
+          if (!document.components.inline_text) document.components.inline_text = {};
+          document.components.inline_text[String(textChild.eid)] = document.strings.length;
+          document.strings.push(value);
+        } else {
+          const idx = document.components.inline_text?.[String(textChild.eid) ?? textChild.eid];
+          if (idx != null && idx >= 0) {
+            document.strings[idx] = value;
+          }
+        }
+      }
+    }
+    if (field === 'URL') {
+      const node = document.nodes.find(n => n.eid === selectedNode);
+      let urlIdx = document.components.inline_url?.[String(node.eid) ?? node.eid];
+      if (urlIdx == null || urlIdx < 0) {
+        urlIdx = document.strings.length;
+        document.strings.push('');
+        if (!document.components.inline_url) document.components.inline_url = {};
+      }
+      document.components.inline_url[String(node.eid) ?? node.eid] = urlIdx;
+      document.strings[urlIdx] = value;
+    }
+    if (field === 'Title') {
+      const node = document.nodes.find(n => n.eid === selectedNode);
+      if (node.type === 'link') {
+        let titleIdx = document.components.inline_title?.[String(node.eid) ?? node.eid];
+        if (titleIdx == null || titleIdx < 0) {
+          titleIdx = document.strings.length;
+          document.strings.push('');
+          if (!document.components.inline_title) document.components.inline_title = {};
+        }
+        document.components.inline_title[String(node.eid) ?? node.eid] = titleIdx;
+        document.strings[titleIdx] = value;
+      }
+    }
+  }
+  await api('/document', 'POST', document);
+  renderTree();
+}
+
+async function deleteNode() {
+  if (selectedNode == null) return;
+  const node = document.nodes.find(n => n.eid === selectedNode);
+  if (!node) return;
+  if (!confirm(`Delete ${node.type}?`)) return;
+  const eid = selectedNode;
+  const parent = node.parent;
+  const prev = node.prev;
+  const next = node.next;
+  if (prev !== -1) {
+    const prevNode = document.nodes.find(n => n.eid === prev);
+    if (prevNode) prevNode.next = next;
+  }
+  if (next !== -1) {
+    const nextNode = document.nodes.find(n => n.eid === next);
+    if (nextNode) nextNode.prev = prev;
+  }
+  if (parent === -1) {
+    if (document.root_first === eid) {
+      document.root_first = next !== -1 ? next : -1;
+    }
+  } else {
+    const parentNode = document.nodes.find(n => n.eid === parent);
+    if (parentNode && parentNode.first_child === eid) {
+      parentNode.first_child = next !== -1 ? next : -1;
+    }
+  }
+  const idx = document.nodes.findIndex(n => n.eid === eid);
+  if (idx !== -1) document.nodes.splice(idx, 1);
+  selectedNode = null;
+  await api('/document', 'POST', document);
+  renderTree();
+  renderEditor();
+}
+
+async function addNode() {
+  const type = prompt('Node type (paragraph, section, code_block, list, thematic_break, admonition):', 'paragraph');
+  if (!type) return;
+  const newNode = {
+    eid: document.nodes.length,
+    type: type,
+    parent: -1,
+    prev: -1,
+    next: -1,
+    first_child: -1
+  };
+  if (document.root_first === -1) {
+    document.root_first = newNode.eid;
+  } else {
+    let last = document.root_first;
+    while (true) {
+      const node = document.nodes.find(n => n.eid === last);
+      if (!node || node.next === -1) break;
+      last = node.next;
+    }
+    const lastNode = document.nodes.find(n => n.eid === last);
+    if (lastNode) {
+      lastNode.next = newNode.eid;
+      newNode.prev = last;
+    }
+  }
+  document.nodes.push(newNode);
+  if (type === 'section') {
+    if (!document.components.block_level) document.components.block_level = {};
+    document.components.block_level[String(newNode.eid)] = 1;
+    const textNode = { eid: document.nodes.length, type: 'text', parent: newNode.eid, prev: -1, next: -1, first_child: -1 };
+    document.nodes.push(textNode);
+    document.components.inline_text = document.components.inline_text || {};
+    document.components.inline_text[String(textNode.eid)] = document.strings.length;
+    document.strings.push('New Section');
+  }
+  if (type === 'paragraph') {
+    const textNode = { eid: document.nodes.length, type: 'text', parent: newNode.eid, prev: -1, next: -1, first_child: -1 };
+    document.nodes.push(textNode);
+    document.components.inline_text = document.components.inline_text || {};
+    document.components.inline_text[String(textNode.eid)] = document.strings.length;
+    document.strings.push('New paragraph');
+  }
+  if (type === 'code_block') {
+    document.components.block_content = document.components.block_content || {};
+    document.components.block_content[String(newNode.eid)] = document.strings.length;
+    document.strings.push('# code here');
+  }
+  await api('/document', 'POST', document);
+  renderTree();
+  selectNode(newNode.eid);
+}
+
+async function newDocument() {
+  await api('/new', 'POST');
+  await loadDoc();
+}
+
+function showLoadModal() { document.getElementById('load-modal').classList.add('active'); }
+function showCommitModal() { document.getElementById('commit-modal').classList.add('active'); }
+function showDiffModal() { document.getElementById('diff-modal').classList.add('active'); }
+function showBranchModal() { document.getElementById('branch-modal').classList.add('active'); loadBranches(); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+async function loadDocument() {
+  const content = document.getElementById('load-content').value;
+  const format = document.querySelector('input[name="format"]:checked').value;
+  const res = await api('/load', 'POST', { content, format });
+  if (res.status === 'ok') {
+    closeModal('load-modal');
+    await loadDoc();
+  } else {
+    alert('Error: ' + res.message);
+  }
+}
+
+async function commit() {
+  const message = document.getElementById('commit-message').value;
+  if (!message) { alert('Enter a commit message'); return; }
+  const res = await api('/commit', 'POST', { message });
+  closeModal('commit-modal');
+  document.getElementById('commit-message').value = '';
+  alert(`Committed: ${res.commit.hash?.substring(0, 8) || res.commit.tree_hash?.substring(0, 8)}`);
+}
+
+async function runDiff() {
+  const c1 = document.getElementById('diff-commit1').value;
+  const c2 = document.getElementById('diff-commit2').value;
+  let url = '/diff';
+  const params = [];
+  if (c1) params.push(`commit1=${encodeURIComponent(c1)}`);
+  if (c2) params.push(`commit2=${encodeURIComponent(c2)}`);
+  if (params.length) url += '?' + params.join('&');
+  const res = await api(url);
+  const result = document.getElementById('diff-result');
+  if (res.is_clean) {
+    result.innerHTML = '<p style="color:#888">No changes.</p>';
+  } else {
+    let html = '';
+    for (const op of res.ops) {
+      let cls = 'diff-modified';
+      if (op.startsWith('+')) cls = 'diff-added';
+      else if (op.startsWith('-')) cls = 'diff-removed';
+      html += `<div class="diff-entry ${cls}">${op.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`;
+    }
+    html += `<div style="margin-top:8px;color:#888">${res.stats.added} added, ${res.stats.removed} removed, ${res.stats.modified} modified</div>`;
+    result.innerHTML = html;
+  }
+}
+
+async function loadBranches() {
+  const res = await api('/branches');
+  const list = document.getElementById('branch-list');
+  let html = '';
+  for (const b of res.branches) {
+    const current = b === res.current ? ' (current)' : '';
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">
+      <span>${b}${current}</span>
+      ${b !== res.current ? `<button class="btn btn-sm" onclick="switchBranch('${b}')">Switch</button>
+      <button class="btn btn-sm" onclick="deleteBranch('${b}')" style="background:#f87171">Delete</button>` : ''}
+    </div>`;
+  }
+  list.innerHTML = html || '<p style="color:#888">No branches</p>';
+}
+
+async function createBranch() {
+  const name = document.getElementById('branch-name').value;
+  if (!name) return;
+  await api('/branch', 'POST', { action: 'create', name });
+  document.getElementById('branch-name').value = '';
+  loadBranches();
+  updateBranchBadge();
+}
+
+async function switchBranch(name) {
+  const res = await api('/branch', 'POST', { action: 'switch', name });
+  if (res.status === 'ok') {
+    document = res.document;
+    renderTree();
+    renderEditor();
+    updateBranchBadge();
+    loadBranches();
+  }
+}
+
+async function deleteBranch(name) {
+  await api('/branch', 'POST', { action: 'delete', name });
+  loadBranches();
+  updateBranchBadge();
+}
+
+async function updateBranchBadge() {
+  try {
+    const res = await api('/branches');
+    document.getElementById('branch-badge').textContent = res.current;
+  } catch (e) {}
+}
+
+async function showLog() {
+  const panel = document.getElementById('bottom-panel');
+  const content = document.getElementById('panel-content');
+  const title = document.getElementById('panel-title');
+  if (panel.style.display === 'block') {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = 'block';
+  title.textContent = 'Commit Log';
+  const commits = await api('/log');
+  let html = '';
+  for (const c of commits) {
+    const date = new Date(c.timestamp * 1000).toISOString().replace('T', ' ').substring(0, 19);
+    html += `<div class="log-entry">
+      <span class="hash">${(c.hash || c.tree_hash || '').substring(0, 8)}</span>
+      <span class="message">${c.message}</span>
+      <span class="author">by ${c.author}</span>
+      <span class="date">${date}</span>
+    </div>`;
+  }
+  content.innerHTML = html || '<p style="color:#888">No commits</p>';
+}
+
+function togglePanel() {
+  const content = document.getElementById('panel-content');
+  const toggle = document.getElementById('panel-toggle');
+  content.style.display = content.style.display === 'none' ? 'block' : 'none';
+  toggle.textContent = content.style.display === 'none' ? '▶' : '▼';
+}
+
+window.addEventListener('DOMContentLoaded', loadDoc);
+</script>
+</body>
+</html>
