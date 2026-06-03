@@ -3,119 +3,117 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Semantic Document Editor</title>
+<title>Semantic Doc Editor</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eee; height: 100vh; display: flex; flex-direction: column; }
-header { background: #16213e; padding: 8px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #0f3460; }
-header h1 { font-size: 16px; color: #e94560; }
-.btn { background: #0f3460; color: #eee; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
-.btn:hover { background: #e94560; }
-.btn-sm { padding: 4px 8px; font-size: 12px; }
-.container { display: flex; flex: 1; overflow: hidden; }
-.sidebar { width: 320px; background: #16213e; border-right: 1px solid #0f3460; display: flex; flex-direction: column; }
-.sidebar-header { padding: 12px; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; align-items: center; }
-.sidebar-header h2 { font-size: 14px; color: #aaa; }
-.tree { flex: 1; overflow-y: auto; padding: 8px; }
-.tree-node { padding: 4px 8px; cursor: pointer; border-radius: 4px; margin: 2px 0; display: flex; align-items: center; gap: 6px; font-size: 13px; }
-.tree-node:hover { background: #0f3460; }
-.tree-node.selected { background: #e94560; color: #fff; }
-.tree-node .icon { width: 16px; text-align: center; }
-.tree-node .label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tree-node .depth { width: 12px; }
-.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.editor { flex: 1; padding: 20px; overflow-y: auto; }
-.editor-title { font-size: 24px; font-weight: bold; margin-bottom: 16px; color: #e94560; }
-.editor-section { margin-bottom: 16px; }
-.editor-label { font-size: 12px; color: #888; margin-bottom: 4px; text-transform: uppercase; }
-.editor-input { width: 100%; background: #0f3460; border: 1px solid #16213e; color: #eee; padding: 8px 12px; border-radius: 4px; font-size: 14px; }
-.editor-input:focus { outline: none; border-color: #e94560; }
-textarea.editor-input { min-height: 120px; font-family: monospace; resize: vertical; }
-.editor-actions { display: flex; gap: 8px; margin-top: 16px; }
-.panel { background: #16213e; border-top: 1px solid #0f3460; max-height: 200px; overflow-y: auto; }
-.panel-header { padding: 8px 12px; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
-.panel-header h3 { font-size: 13px; color: #aaa; }
-.panel-content { padding: 8px 12px; }
-.log-entry { padding: 6px 8px; border-bottom: 1px solid #0f3460; font-size: 12px; }
-.log-entry .hash { color: #e94560; font-family: monospace; }
-.log-entry .message { color: #eee; }
-.log-entry .author { color: #888; }
-.log-entry .date { color: #666; }
-.diff-entry { padding: 4px 8px; font-family: monospace; font-size: 12px; }
-.diff-added { color: #4ade80; }
-.diff-removed { color: #f87171; }
-.diff-modified { color: #fbbf24; }
-.modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 100; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fafafa; color: #333; height: 100vh; display: flex; flex-direction: column; }
+header { background: #fff; padding: 6px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #e0e0e0; flex-shrink: 0; }
+header h1 { font-size: 14px; color: #666; font-weight: 400; margin-right: 8px; }
+.btn { background: #fff; color: #333; border: 1px solid #ddd; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.btn:hover { background: #f0f0f0; border-color: #bbb; }
+.btn-primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+.btn-primary:hover { background: #1d4ed8; }
+.toolbar { display: flex; gap: 2px; padding: 4px 16px; background: #fff; border-bottom: 1px solid #e0e0e0; flex-shrink: 0; }
+.toolbar button { background: none; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 13px; color: #555; }
+.toolbar button:hover { background: #f0f0f0; }
+.toolbar .sep { width: 1px; background: #ddd; margin: 0 4px; }
+.editor-wrap { flex: 1; overflow-y: auto; display: flex; justify-content: center; }
+.editor { width: 100%; max-width: 780px; padding: 40px 24px 120px; outline: none; font-size: 16px; line-height: 1.7; min-height: 100%; }
+.editor:empty::before { content: "Start typing..."; color: #bbb; }
+.editor h1 { font-size: 2em; font-weight: 700; margin: 0.8em 0 0.4em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+.editor h2 { font-size: 1.5em; font-weight: 600; margin: 0.8em 0 0.4em; }
+.editor h3 { font-size: 1.25em; font-weight: 600; margin: 0.6em 0 0.3em; }
+.editor h4 { font-size: 1.1em; font-weight: 600; margin: 0.6em 0 0.3em; }
+.editor h5 { font-size: 1em; font-weight: 600; margin: 0.6em 0 0.3em; }
+.editor h6 { font-size: 0.9em; font-weight: 600; margin: 0.6em 0 0.3em; color: #666; }
+.editor p { margin: 0.5em 0; }
+.editor blockquote { border-left: 3px solid #ddd; padding-left: 16px; margin: 0.5em 0; color: #666; }
+.editor pre { background: #f5f5f5; padding: 12px 16px; border-radius: 6px; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 14px; margin: 0.5em 0; }
+.editor code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9em; }
+.editor pre code { background: none; padding: 0; }
+.editor ul, .editor ol { padding-left: 24px; margin: 0.5em 0; }
+.editor li { margin: 0.2em 0; }
+.editor hr { border: none; border-top: 1px solid #ddd; margin: 1.5em 0; }
+.editor a { color: #2563eb; text-decoration: none; }
+.editor a:hover { text-decoration: underline; }
+.editor img { max-width: 100%; border-radius: 6px; }
+.status-bar { background: #fff; border-top: 1px solid #e0e0e0; padding: 4px 16px; font-size: 11px; color: #999; display: flex; justify-content: space-between; flex-shrink: 0; }
+.modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); display: none; align-items: center; justify-content: center; z-index: 100; }
 .modal.active { display: flex; }
-.modal-content { background: #16213e; padding: 20px; border-radius: 8px; min-width: 400px; max-width: 600px; }
-.modal-content h3 { margin-bottom: 12px; color: #e94560; }
-.modal-content input { width: 100%; margin-bottom: 12px; }
+.modal-content { background: #fff; padding: 20px; border-radius: 8px; min-width: 400px; max-width: 600px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+.modal-content h3 { margin-bottom: 12px; font-size: 16px; }
+.modal-content input, .modal-content textarea { width: 100%; margin-bottom: 12px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: inherit; }
+.modal-content textarea { min-height: 120px; font-family: monospace; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
-.badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; background: #0f3460; color: #aaa; }
-.badge-block { background: #1e3a5f; color: #60a5fa; }
-.badge-inline { background: #3b1e5f; color: #c084fc; }
+.log-entry { padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
+.log-entry .hash { color: #2563eb; font-family: monospace; }
+.log-entry .message { color: #333; }
+.log-entry .author { color: #999; }
+.diff-entry { padding: 2px 0; font-family: monospace; font-size: 12px; }
+.diff-added { color: #16a34a; }
+.diff-removed { color: #dc2626; }
+.diff-modified { color: #d97706; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Semantic Doc Editor</h1>
-  <button class="btn" onclick="newDocument()">New</button>
-  <button class="btn" onclick="showLoadModal()">Load</button>
-  <button class="btn" onclick="showCommitModal()">Commit</button>
+  <h1>Semantic Doc</h1>
+  <button class="btn" onclick="newDoc()">New</button>
+  <button class="btn" onclick="showLoadModal()">Import</button>
+  <div style="flex:1"></div>
   <button class="btn" onclick="showDiffModal()">Diff</button>
-  <button class="btn" onclick="showBranchModal()">Branch</button>
-  <button class="btn" onclick="showLog()">Log</button>
-  <span id="branch-badge" class="badge">main</span>
+  <button class="btn" onclick="showBranchModal()">Branches</button>
+  <button class="btn" onclick="showLog()">History</button>
+  <button class="btn btn-primary" onclick="showCommitModal()">Commit</button>
 </header>
-<div class="container">
-  <div class="sidebar">
-    <div class="sidebar-header">
-      <h2>Document Tree</h2>
-      <button class="btn btn-sm" onclick="addNode()">+ Add</button>
-    </div>
-    <div class="tree" id="tree"></div>
-  </div>
-  <div class="main">
-    <div class="editor" id="editor">
-      <div class="editor-title" id="editor-title">Select a node to edit</div>
-      <div id="editor-fields"></div>
-      <div class="editor-actions" id="editor-actions" style="display:none">
-        <button class="btn" onclick="saveNode()">Save</button>
-        <button class="btn" onclick="deleteNode()">Delete</button>
-      </div>
-    </div>
-    <div class="panel" id="bottom-panel" style="display:none">
-      <div class="panel-header" onclick="togglePanel()">
-        <h3 id="panel-title">Log</h3>
-        <span id="panel-toggle">▼</span>
-      </div>
-      <div class="panel-content" id="panel-content"></div>
-    </div>
-  </div>
+<div class="toolbar">
+  <button onclick="insertHeading(1)" title="Heading 1">H1</button>
+  <button onclick="insertHeading(2)" title="Heading 2">H2</button>
+  <button onclick="insertHeading(3)" title="Heading 3">H3</button>
+  <div class="sep"></div>
+  <button onclick="insertBold()" title="Bold"><b>B</b></button>
+  <button onclick="insertItalic()" title="Italic"><i>I</i></button>
+  <button onclick="insertCode()" title="Inline Code">&lt;/&gt;</button>
+  <div class="sep"></div>
+  <button onclick="insertCodeBlock()" title="Code Block">{ }</button>
+  <button onclick="insertQuote()" title="Quote">"</button>
+  <button onclick="insertList('ul')" title="Bullet List">•</button>
+  <button onclick="insertList('ol')" title="Numbered List">1.</button>
+  <div class="sep"></div>
+  <button onclick="insertHR()" title="Horizontal Rule">—</button>
+  <button onclick="insertLink()" title="Link">🔗</button>
+  <button onclick="insertImage()" title="Image">🖼</button>
+</div>
+<div class="editor-wrap">
+  <div class="editor" id="editor" contenteditable="true"></div>
+</div>
+<div class="status-bar">
+  <span id="status-left">Ready</span>
+  <span id="status-right"></span>
 </div>
 
 <div class="modal" id="commit-modal">
   <div class="modal-content">
-    <h3>Commit Changes</h3>
-    <input class="editor-input" id="commit-message" placeholder="Commit message..." />
+    <h3>Commit</h3>
+    <input id="commit-message" placeholder="Commit message..." />
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('commit-modal')">Cancel</button>
-      <button class="btn" onclick="commit()">Commit</button>
+      <button class="btn btn-primary" onclick="commit()">Commit</button>
     </div>
   </div>
 </div>
 
 <div class="modal" id="load-modal">
   <div class="modal-content">
-    <h3>Load Document</h3>
-    <textarea class="editor-input" id="load-content" placeholder="Paste JSON or Markdown content..."></textarea>
+    <h3>Import Document</h3>
+    <textarea id="load-content" placeholder="Paste Markdown or JSON here..."></textarea>
     <div style="margin-bottom:12px">
-      <label><input type="radio" name="format" value="json" checked> JSON</label>
-      <label><input type="radio" name="format" value="markdown"> Markdown</label>
+      <label><input type="radio" name="format" value="markdown" checked> Markdown</label>
+      <label style="margin-left:12px"><input type="radio" name="format" value="json"> JSON</label>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('load-modal')">Cancel</button>
-      <button class="btn" onclick="loadDocument()">Load</button>
+      <button class="btn btn-primary" onclick="loadDocument()">Import</button>
     </div>
   </div>
 </div>
@@ -123,14 +121,14 @@ textarea.editor-input { min-height: 120px; font-family: monospace; resize: verti
 <div class="modal" id="diff-modal">
   <div class="modal-content" style="max-width:700px">
     <h3>Diff</h3>
-    <div style="margin-bottom:12px;display:flex;gap:8px">
-      <input class="editor-input" id="diff-commit1" placeholder="Commit 1 (hash or empty for current)" style="flex:1" />
-      <input class="editor-input" id="diff-commit2" placeholder="Commit 2 (hash or empty for current)" style="flex:1" />
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input id="diff-commit1" placeholder="Commit 1 (or empty for last commit)" style="flex:1" />
+      <input id="diff-commit2" placeholder="Commit 2 (or empty for current)" style="flex:1" />
     </div>
-    <div id="diff-result" style="max-height:400px;overflow-y:auto"></div>
+    <div id="diff-result" style="max-height:300px;overflow-y:auto"></div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('diff-modal')">Close</button>
-      <button class="btn" onclick="runDiff()">Compare</button>
+      <button class="btn btn-primary" onclick="runDiff()">Compare</button>
     </div>
   </div>
 </div>
@@ -138,10 +136,10 @@ textarea.editor-input { min-height: 120px; font-family: monospace; resize: verti
 <div class="modal" id="branch-modal">
   <div class="modal-content">
     <h3>Branches</h3>
-    <div id="branch-list" style="margin-bottom:12px"></div>
+    <div id="branch-list" style="margin-bottom:12px;max-height:200px;overflow-y:auto"></div>
     <div style="display:flex;gap:8px;margin-bottom:12px">
-      <input class="editor-input" id="branch-name" placeholder="New branch name..." style="flex:1" />
-      <button class="btn" onclick="createBranch()">Create</button>
+      <input id="branch-name" placeholder="New branch name..." style="flex:1" />
+      <button class="btn btn-primary" onclick="createBranch()">Create</button>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('branch-modal')">Close</button>
@@ -149,20 +147,19 @@ textarea.editor-input { min-height: 120px; font-family: monospace; resize: verti
   </div>
 </div>
 
-<script>
-let irDoc = null;
-let selectedNode = null;
-let selectedPath = [];
+<div class="modal" id="log-modal">
+  <div class="modal-content" style="max-width:600px">
+    <h3>History</h3>
+    <div id="log-list" style="max-height:400px;overflow-y:auto"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('log-modal')">Close</button>
+    </div>
+  </div>
+</div>
 
-const BLOCK_ICONS = {
-  section: '§', paragraph: '¶', code_block: '</>', list: '•', list_item: '◦',
-  blockquote: '❝', table: '⊞', table_row: '▬', table_cell: '▫',
-  thematic_break: '—', admonition: '⚠'
-};
-const INLINE_ICONS = {
-  text: 'T', emphasis: 'I', strong: 'B', inline_code: '`',
-  link: '🔗', image: '🖼', line_break: '↵'
-};
+<script>
+let saveTimeout = null;
+const editor = document.getElementById('editor');
 
 async function api(path, method = 'GET', body = null) {
   const opts = { method, headers: {} };
@@ -171,378 +168,288 @@ async function api(path, method = 'GET', body = null) {
   return res.json();
 }
 
+function mdToHtml(md) {
+  const lines = md.split('\n');
+  let html = '';
+  let inCode = false;
+  let codeLang = '';
+  let codeContent = '';
+  let inList = null;
+
+  function closeList() {
+    if (inList === 'ul') { html += '</ul>\n'; inList = null; }
+    else if (inList === 'ol') { html += '</ol>\n'; inList = null; }
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (inCode) {
+      if (line.trim().startsWith('```') || line.trim().startsWith('~~~')) {
+        html += `<pre><code class="language-${codeLang}">${escapeHtml(codeContent)}</code></pre>\n`;
+        inCode = false;
+        codeContent = '';
+        codeLang = '';
+      } else {
+        codeContent += (codeContent ? '\n' : '') + line;
+      }
+      continue;
+    }
+
+    if (line.trim().startsWith('```') || line.trim().startsWith('~~~')) {
+      closeList();
+      inCode = true;
+      codeLang = line.trim().slice(3).trim();
+      continue;
+    }
+
+    if (line.trim() === '') {
+      closeList();
+      continue;
+    }
+
+    const headingMatch = line.match(/^(#{1,6})\s+(.*)/);
+    if (headingMatch) {
+      closeList();
+      const level = headingMatch[1].length;
+      html += `<h${level}>${inlineFormat(headingMatch[2])}</h${level}>\n`;
+      continue;
+    }
+
+    if (line.trim() === '---' || line.trim() === '***') {
+      closeList();
+      html += '<hr>\n';
+      continue;
+    }
+
+    if (line.startsWith('> ')) {
+      closeList();
+      html += `<blockquote>${inlineFormat(line.slice(2))}</blockquote>\n`;
+      continue;
+    }
+
+    const ulMatch = line.match(/^[\s]*[-*+]\s+(.*)/);
+    if (ulMatch) {
+      if (inList !== 'ul') { closeList(); html += '<ul>\n'; inList = 'ul'; }
+      html += `<li>${inlineFormat(ulMatch[1])}</li>\n`;
+      continue;
+    }
+
+    const olMatch = line.match(/^[\s]*\d+\.\s+(.*)/);
+    if (olMatch) {
+      if (inList !== 'ol') { closeList(); html += '<ol>\n'; inList = 'ol'; }
+      html += `<li>${inlineFormat(olMatch[1])}</li>\n`;
+      continue;
+    }
+
+    closeList();
+    html += `<p>${inlineFormat(line)}</p>\n`;
+  }
+
+  closeList();
+  return html;
+}
+
+function inlineFormat(text) {
+  text = escapeHtml(text);
+  text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+  text = text.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
+  text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  text = text.replace(/___([^_]+)___/g, '<strong><em>$1</em></strong>');
+  text = text.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  text = text.replace(/_([^_]+)_/g, '<em>$1</em>');
+  return text;
+}
+
+function escapeHtml(text) {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function htmlToMd(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  let md = '';
+  for (const node of doc.body.childNodes) {
+    md += nodeToMd(node) + '\n\n';
+  }
+  return md.trim();
+}
+
+function nodeToMd(node) {
+  if (node.nodeType === 3) return node.textContent;
+  if (node.nodeType !== 1) return '';
+  const tag = node.tagName.toLowerCase();
+
+  if (tag.match(/^h[1-6]$/)) {
+    const level = parseInt(tag[1]);
+    return '#'.repeat(level) + ' ' + node.textContent;
+  }
+  if (tag === 'p') {
+    return inlineMd(node.innerHTML);
+  }
+  if (tag === 'pre') {
+    const code = node.querySelector('code');
+    const lang = code ? (code.className.match(/language-(\w+)/) || [])[1] || '' : '';
+    const content = code ? code.textContent : node.textContent;
+    return '```' + lang + '\n' + content + '\n```';
+  }
+  if (tag === 'blockquote') {
+    return node.textContent.split('\n').map(l => '> ' + l).join('\n');
+  }
+  if (tag === 'ul') {
+    return Array.from(node.children).map(li => '- ' + li.textContent).join('\n');
+  }
+  if (tag === 'ol') {
+    return Array.from(node.children).map((li, i) => `${i + 1}. ${li.textContent}`).join('\n');
+  }
+  if (tag === 'hr') return '---';
+  return node.textContent;
+}
+
+function inlineMd(html) {
+  let text = html;
+  text = text.replace(/<img[^>]+alt="([^"]*)"[^>]+src="([^"]*)"[^>]*>/g, '![$1]($2)');
+  text = text.replace(/<a[^>]+href="([^"]*)"[^>]*>([^<]*)<\/a>/g, '[$2]($1)');
+  text = text.replace(/<code>([^<]+)<\/code>/g, '`$1`');
+  text = text.replace(/<strong><em>([^<]+)<\/em><\/strong>/g, '***$1***');
+  text = text.replace(/<strong>([^<]+)<\/strong>/g, '**$1**');
+  text = text.replace(/<em>([^<]+)<\/em>/g, '*$1*');
+  text = text.replace(/<[^>]+>/g, '');
+  return text;
+}
+
+function scheduleSave() {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    const md = htmlToMd(editor.innerHTML);
+    try {
+      await api('/text', 'POST', { text: md });
+      updateStatus();
+    } catch (e) {
+      console.error('Save failed:', e);
+    }
+  }, 500);
+}
+
+function updateStatus() {
+  const md = htmlToMd(editor.innerHTML);
+  const words = md.split(/\s+/).filter(w => w).length;
+  const chars = md.length;
+  document.getElementById('status-left').textContent = `${words} words · ${chars} chars`;
+}
+
+editor.addEventListener('input', () => { scheduleSave(); updateStatus(); });
+editor.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    document.execCommand('insertText', false, '    ');
+  }
+});
+
+function insertHeading(level) {
+  const md = '#'.repeat(level) + ' ';
+  document.execCommand('insertText', false, md);
+  editor.focus();
+}
+
+function insertBold() {
+  document.execCommand('insertText', false, '****');
+  editor.focus();
+  const sel = window.getSelection();
+  if (sel.rangeCount) {
+    const range = sel.getRangeAt(0);
+    range.setStart(range.startContainer, range.startOffset - 2);
+    range.setEnd(range.startContainer, range.startOffset - 2);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
+
+function insertItalic() {
+  document.execCommand('insertText', false, '**');
+  editor.focus();
+  const sel = window.getSelection();
+  if (sel.rangeCount) {
+    const range = sel.getRangeAt(0);
+    range.setStart(range.startContainer, range.startOffset - 1);
+    range.setEnd(range.startContainer, range.startOffset - 1);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
+
+function insertCode() {
+  document.execCommand('insertText', false, '``');
+  editor.focus();
+  const sel = window.getSelection();
+  if (sel.rangeCount) {
+    const range = sel.getRangeAt(0);
+    range.setStart(range.startContainer, range.startOffset - 1);
+    range.setEnd(range.startContainer, range.startOffset - 1);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
+
+function insertCodeBlock() {
+  document.execCommand('insertText', false, '\n```\n\n```\n');
+  editor.focus();
+}
+
+function insertQuote() {
+  document.execCommand('insertText', false, '> ');
+  editor.focus();
+}
+
+function insertList(type) {
+  if (type === 'ul') document.execCommand('insertText', false, '- ');
+  else document.execCommand('insertText', false, '1. ');
+  editor.focus();
+}
+
+function insertHR() {
+  document.execCommand('insertText', false, '\n---\n');
+  editor.focus();
+}
+
+function insertLink() {
+  const url = prompt('URL:');
+  if (url) {
+    document.execCommand('insertText', false, `[text](${url})`);
+    editor.focus();
+  }
+}
+
+function insertImage() {
+  const url = prompt('Image URL:');
+  if (url) {
+    document.execCommand('insertText', false, `![alt](${url})`);
+    editor.focus();
+  }
+}
+
 async function loadDoc() {
-  irDoc = await api('/document');
-  selectedNode = null;
-  selectedPath = [];
-  renderTree();
-  renderEditor();
-  updateBranchBadge();
+  const res = await api('/text');
+  const md = res.text || '# Introduction\n\nStart typing here...';
+  editor.innerHTML = mdToHtml(md);
+  updateStatus();
 }
 
-function renderTree() {
-  const tree = document.getElementById('tree');
-  tree.innerHTML = '';
-  const nodes = irDoc.nodes;
-  const strings = irDoc.strings;
-  function getText(eid) {
-    const children = nodes.filter(n => n.parent === eid);
-    let text = '';
-    for (const child of children) {
-      if (child.type === 'text' || child.type === 'inline_code') {
-        const idx = irDoc.components.inline_text?.[String(child.eid) ?? child.eid];
-        if (idx != null && idx >= 0 && strings[idx]) text += strings[idx] + ' ';
-      }
-    }
-    return text.trim() || '(empty)';
-  }
-  function getNodeLabel(node) {
-    const type = node.type;
-    if (type === 'section') {
-      const level = irDoc.components.block_level?.[String(node.eid) ?? node.eid] || 1;
-      return `H${level}: ${getText(node.eid)}`;
-    }
-    if (type === 'code_block') {
-      const lang = irDoc.components.block_language?.[String(node.eid) ?? node.eid];
-      const langStr = (lang != null && lang >= 0) ? strings[lang] : '';
-      return `Code (${langStr || 'plain'})`;
-    }
-    if (type === 'paragraph' || type === 'list_item' || type === 'table_cell') {
-      return getText(node.eid);
-    }
-    if (type === 'list') {
-      const lt = irDoc.components.block_list_type?.[String(node.eid) ?? node.eid];
-      return `List (${lt || 'unordered'})`;
-    }
-    if (type === 'admonition') {
-      const at = irDoc.components.block_admon_type?.[String(node.eid) ?? node.eid];
-      return `Admonition (${at || 'note'})`;
-    }
-    return type;
-  }
-  function getDepth(eid) {
-    let d = 0, cur = nodes.find(n => n.eid === eid);
-    while (cur && cur.parent !== -1) { d++; cur = nodes.find(n => n.eid === cur.parent); }
-    return d;
-  }
-  const rootNodes = nodes.filter(n => n.parent === -1);
-  function renderNodeList(parentEid, depth) {
-    const children = nodes.filter(n => n.parent === parentEid);
-    for (const node of children) {
-      const div = document.createElement('div');
-      div.className = 'tree-node' + (selectedNode === node.eid ? ' selected' : '');
-      div.innerHTML = `<span class="depth">${' '.repeat(depth * 2)}</span><span class="icon">${BLOCK_ICONS[node.type] || INLINE_ICONS[node.type] || '?'}</span><span class="label">${getNodeLabel(node)}</span><span class="badge badge-${node.type.includes('_') && !['code_block','list_item','table_row','table_cell'].includes(node.type) ? 'inline' : 'block'}">${node.type}</span>`;
-      div.onclick = () => selectNode(node.eid);
-      tree.appendChild(div);
-      renderNodeList(node.eid, depth + 1);
-    }
-  }
-  renderNodeList(-1, 0);
-}
-
-function selectNode(eid) {
-  selectedNode = eid;
-  renderTree();
-  renderEditor();
-}
-
-function renderEditor() {
-  const title = document.getElementById('editor-title');
-  const fields = document.getElementById('editor-fields');
-  const actions = document.getElementById('editor-actions');
-  if (selectedNode == null) {
-    title.textContent = irDoc.meta_title >= 0 ? irDoc.strings[irDoc.meta_title] : 'Untitled';
-    fields.innerHTML = '<p style="color:#888">Select a node from the tree to edit</p>';
-    actions.style.display = 'none';
-    return;
-  }
-  const node = irDoc.nodes.find(n => n.eid === selectedNode);
-  if (!node) return;
-  title.textContent = node.type;
-  fields.innerHTML = '';
-  const comp = irDoc.components;
-  function addField(label, value, type = 'text') {
-    const div = document.createElement('div');
-    div.className = 'editor-section';
-    div.innerHTML = `<div class="editor-label">${label}</div>`;
-    if (type === 'textarea') {
-      const ta = document.createElement('textarea');
-      ta.className = 'editor-input';
-      ta.value = value;
-      ta.dataset.field = label;
-      div.appendChild(ta);
-    } else {
-      const input = document.createElement('input');
-      input.className = 'editor-input';
-      input.value = value;
-      input.dataset.field = label;
-      div.appendChild(input);
-    }
-    fields.appendChild(div);
-  }
-  if (node.type === 'text' || node.type === 'inline_code') {
-    const idx = comp.inline_text?.[String(node.eid) ?? node.eid];
-    const text = (idx != null && idx >= 0) ? irDoc.strings[idx] : '';
-    addField('Content', text, node.type === 'text' ? 'textarea' : 'text');
-  }
-  if (node.type === 'code_block') {
-    const langIdx = comp.block_language?.[String(node.eid) ?? node.eid];
-    const lang = (langIdx != null && langIdx >= 0) ? irDoc.strings[langIdx] : '';
-    const contentIdx = comp.block_content?.[String(node.eid) ?? node.eid];
-    const content = (contentIdx != null && contentIdx >= 0) ? irDoc.strings[contentIdx] : '';
-    addField('Language', lang);
-    addField('Content', content, 'textarea');
-  }
-  if (node.type === 'section') {
-    const level = comp.block_level?.[String(node.eid) ?? node.eid] || 1;
-    const text = getText(node.eid);
-    addField('Level', String(level));
-    addField('Title', text);
-  }
-  if (node.type === 'paragraph' || node.type === 'list_item' || node.type === 'table_cell') {
-    const text = getText(node.eid);
-    addField('Content', text, 'textarea');
-  }
-  if (node.type === 'link') {
-    const urlIdx = comp.inline_url?.[String(node.eid) ?? node.eid];
-    const url = (urlIdx != null && urlIdx >= 0) ? irDoc.strings[urlIdx] : '';
-    const titleIdx = comp.inline_title?.[String(node.eid) ?? node.eid];
-    const title = (titleIdx != null && titleIdx >= 0) ? irDoc.strings[titleIdx] : '';
-    addField('URL', url);
-    addField('Title', title);
-  }
-  actions.style.display = 'flex';
-}
-
-function getText(eid) {
-  const children = irDoc.nodes.filter(n => n.parent === eid);
-  let text = '';
-  for (const child of children) {
-    if (child.type === 'text' || child.type === 'inline_code') {
-      const idx = irDoc.components.inline_text?.[String(child.eid) ?? child.eid];
-      if (idx != null && idx >= 0 && irDoc.strings[idx]) text += irDoc.strings[idx] + ' ';
-    }
-  }
-  return text.trim();
-}
-
-async function saveNode() {
-  const inputs = document.querySelectorAll('#editor-fields input, #editor-fields textarea');
-  for (const input of inputs) {
-    const field = input.dataset.field;
-    const value = input.value;
-    if (field === 'Content') {
-      const node = irDoc.nodes.find(n => n.eid === selectedNode);
-      if (node.type === 'text' || node.type === 'inline_code') {
-        let idx = irDoc.components.inline_text?.[String(node.eid) ?? node.eid];
-        if (idx == null || idx < 0) {
-          idx = irDoc.strings.length;
-          irDoc.strings.push('');
-          if (!irDoc.components.inline_text) irDoc.components.inline_text = {};
-        }
-        irDoc.components.inline_text[String(node.eid) ?? node.eid] = idx;
-        irDoc.strings[idx] = value;
-      }
-      if (node.type === 'paragraph' || node.type === 'list_item' || node.type === 'table_cell') {
-        let textChild = irDoc.nodes.find(n => n.parent === node.eid && (n.type === 'text' || n.type === 'inline_code'));
-        if (!textChild) {
-          textChild = { eid: irDoc.nodes.length, type: 'text', parent: node.eid, prev: -1, next: -1, first_child: -1 };
-          irDoc.nodes.push(textChild);
-          if (!irDoc.components.inline_text) irDoc.components.inline_text = {};
-          irDoc.components.inline_text[String(textChild.eid)] = irDoc.strings.length;
-          irDoc.strings.push(value);
-        } else {
-          const idx = irDoc.components.inline_text?.[String(textChild.eid) ?? textChild.eid];
-          if (idx != null && idx >= 0) {
-            irDoc.strings[idx] = value;
-          }
-        }
-      }
-      if (node.type === 'code_block') {
-        let contentIdx = irDoc.components.block_content?.[String(node.eid) ?? node.eid];
-        if (contentIdx == null || contentIdx < 0) {
-          contentIdx = irDoc.strings.length;
-          irDoc.strings.push('');
-          if (!irDoc.components.block_content) irDoc.components.block_content = {};
-        }
-        irDoc.components.block_content[String(node.eid) ?? node.eid] = contentIdx;
-        irDoc.strings[contentIdx] = value;
-      }
-    }
-    if (field === 'Language') {
-      const node = irDoc.nodes.find(n => n.eid === selectedNode);
-      let langIdx = irDoc.components.block_language?.[String(node.eid) ?? node.eid];
-      if (langIdx == null || langIdx < 0) {
-        langIdx = irDoc.strings.length;
-        irDoc.strings.push('');
-        if (!irDoc.components.block_language) irDoc.components.block_language = {};
-      }
-      irDoc.components.block_language[String(node.eid) ?? node.eid] = langIdx;
-      irDoc.strings[langIdx] = value;
-    }
-    if (field === 'Level') {
-      const node = irDoc.nodes.find(n => n.eid === selectedNode);
-      if (irDoc.components.block_level) {
-        irDoc.components.block_level[String(node.eid) ?? node.eid] = parseInt(value) || 1;
-      }
-    }
-    if (field === 'Title') {
-      const node = irDoc.nodes.find(n => n.eid === selectedNode);
-      if (node.type === 'section') {
-        let textChild = irDoc.nodes.find(n => n.parent === node.eid && n.type === 'text');
-        if (!textChild) {
-          textChild = { eid: irDoc.nodes.length, type: 'text', parent: node.eid, prev: -1, next: -1, first_child: -1 };
-          irDoc.nodes.push(textChild);
-          if (!irDoc.components.inline_text) irDoc.components.inline_text = {};
-          irDoc.components.inline_text[String(textChild.eid)] = irDoc.strings.length;
-          irDoc.strings.push(value);
-        } else {
-          const idx = irDoc.components.inline_text?.[String(textChild.eid) ?? textChild.eid];
-          if (idx != null && idx >= 0) {
-            irDoc.strings[idx] = value;
-          }
-        }
-      }
-    }
-    if (field === 'URL') {
-      const node = irDoc.nodes.find(n => n.eid === selectedNode);
-      let urlIdx = irDoc.components.inline_url?.[String(node.eid) ?? node.eid];
-      if (urlIdx == null || urlIdx < 0) {
-        urlIdx = irDoc.strings.length;
-        irDoc.strings.push('');
-        if (!irDoc.components.inline_url) irDoc.components.inline_url = {};
-      }
-      irDoc.components.inline_url[String(node.eid) ?? node.eid] = urlIdx;
-      irDoc.strings[urlIdx] = value;
-    }
-    if (field === 'Title') {
-      const node = irDoc.nodes.find(n => n.eid === selectedNode);
-      if (node.type === 'link') {
-        let titleIdx = irDoc.components.inline_title?.[String(node.eid) ?? node.eid];
-        if (titleIdx == null || titleIdx < 0) {
-          titleIdx = irDoc.strings.length;
-          irDoc.strings.push('');
-          if (!irDoc.components.inline_title) irDoc.components.inline_title = {};
-        }
-        irDoc.components.inline_title[String(node.eid) ?? node.eid] = titleIdx;
-        irDoc.strings[titleIdx] = value;
-      }
-    }
-  }
-  await api('/document', 'POST', irDoc);
-  renderTree();
-}
-
-async function deleteNode() {
-  if (selectedNode == null) return;
-  const node = irDoc.nodes.find(n => n.eid === selectedNode);
-  if (!node) return;
-  if (!confirm(`Delete ${node.type}?`)) return;
-  const eid = selectedNode;
-  const parent = node.parent;
-  const prev = node.prev;
-  const next = node.next;
-  if (prev !== -1) {
-    const prevNode = irDoc.nodes.find(n => n.eid === prev);
-    if (prevNode) prevNode.next = next;
-  }
-  if (next !== -1) {
-    const nextNode = irDoc.nodes.find(n => n.eid === next);
-    if (nextNode) nextNode.prev = prev;
-  }
-  if (parent === -1) {
-    if (irDoc.root_first === eid) {
-      irDoc.root_first = next !== -1 ? next : -1;
-    }
-  } else {
-    const parentNode = irDoc.nodes.find(n => n.eid === parent);
-    if (parentNode && parentNode.first_child === eid) {
-      parentNode.first_child = next !== -1 ? next : -1;
-    }
-  }
-  const idx = irDoc.nodes.findIndex(n => n.eid === eid);
-  if (idx !== -1) irDoc.nodes.splice(idx, 1);
-  selectedNode = null;
-  await api('/document', 'POST', irDoc);
-  renderTree();
-  renderEditor();
-}
-
-async function addNode() {
-  const type = prompt('Node type (paragraph, section, code_block, list, thematic_break, admonition):', 'paragraph');
-  if (!type) return;
-  const newNode = {
-    eid: irDoc.nodes.length,
-    type: type,
-    parent: -1,
-    prev: -1,
-    next: -1,
-    first_child: -1
-  };
-  if (irDoc.root_first === -1) {
-    irDoc.root_first = newNode.eid;
-  } else {
-    let last = irDoc.root_first;
-    while (true) {
-      const node = irDoc.nodes.find(n => n.eid === last);
-      if (!node || node.next === -1) break;
-      last = node.next;
-    }
-    const lastNode = irDoc.nodes.find(n => n.eid === last);
-    if (lastNode) {
-      lastNode.next = newNode.eid;
-      newNode.prev = last;
-    }
-  }
-  irDoc.nodes.push(newNode);
-  if (type === 'section') {
-    if (!irDoc.components.block_level) irDoc.components.block_level = {};
-    irDoc.components.block_level[String(newNode.eid)] = 1;
-    const textNode = { eid: irDoc.nodes.length, type: 'text', parent: newNode.eid, prev: -1, next: -1, first_child: -1 };
-    irDoc.nodes.push(textNode);
-    irDoc.components.inline_text = irDoc.components.inline_text || {};
-    irDoc.components.inline_text[String(textNode.eid)] = irDoc.strings.length;
-    irDoc.strings.push('New Section');
-  }
-  if (type === 'paragraph') {
-    const textNode = { eid: irDoc.nodes.length, type: 'text', parent: newNode.eid, prev: -1, next: -1, first_child: -1 };
-    irDoc.nodes.push(textNode);
-    irDoc.components.inline_text = irDoc.components.inline_text || {};
-    irDoc.components.inline_text[String(textNode.eid)] = irDoc.strings.length;
-    irDoc.strings.push('New paragraph');
-  }
-  if (type === 'code_block') {
-    irDoc.components.block_content = irDoc.components.block_content || {};
-    irDoc.components.block_content[String(newNode.eid)] = irDoc.strings.length;
-    irDoc.strings.push('# code here');
-  }
-  await api('/document', 'POST', irDoc);
-  renderTree();
-  selectNode(newNode.eid);
-}
-
-async function newDocument() {
+async function newDoc() {
+  if (!confirm('Create new document? Unsaved changes will be lost.')) return;
   await api('/new', 'POST');
   await loadDoc();
 }
 
-function showLoadModal() { document.getElementById('load-modal').classList.add('active'); }
 function showCommitModal() { document.getElementById('commit-modal').classList.add('active'); }
+function showLoadModal() { document.getElementById('load-modal').classList.add('active'); }
 function showDiffModal() { document.getElementById('diff-modal').classList.add('active'); }
 function showBranchModal() { document.getElementById('branch-modal').classList.add('active'); loadBranches(); }
+function showLog() { document.getElementById('log-modal').classList.add('active'); loadLog(); }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-
-async function loadDocument() {
-  const content = document.getElementById('load-content').value;
-  const format = document.querySelector('input[name="format"]:checked').value;
-  const res = await api('/load', 'POST', { content, format });
-  if (res.status === 'ok') {
-    closeModal('load-modal');
-    await loadDoc();
-  } else {
-    alert('Error: ' + res.message);
-  }
-}
 
 async function commit() {
   const message = document.getElementById('commit-message').value;
@@ -550,7 +457,20 @@ async function commit() {
   const res = await api('/commit', 'POST', { message });
   closeModal('commit-modal');
   document.getElementById('commit-message').value = '';
-  alert(`Committed: ${res.commit.hash?.substring(0, 8) || res.commit.tree_hash?.substring(0, 8)}`);
+  document.getElementById('status-left').textContent = `Committed: ${(res.commit.hash || res.commit.tree_hash || '').substring(0, 8)}`;
+}
+
+async function loadDocument() {
+  const content = document.getElementById('load-content').value;
+  const format = document.querySelector('input[name="format"]:checked').value;
+  const res = await api('/load', 'POST', { content, format });
+  if (res.status === 'ok') {
+    closeModal('load-modal');
+    editor.innerHTML = mdToHtml(res.text || '');
+    updateStatus();
+  } else {
+    alert('Error: ' + res.message);
+  }
 }
 
 async function runDiff() {
@@ -564,16 +484,16 @@ async function runDiff() {
   const res = await api(url);
   const result = document.getElementById('diff-result');
   if (res.is_clean) {
-    result.innerHTML = '<p style="color:#888">No changes.</p>';
+    result.innerHTML = '<p style="color:#999">No changes.</p>';
   } else {
     let html = '';
     for (const op of res.ops) {
       let cls = 'diff-modified';
       if (op.startsWith('+')) cls = 'diff-added';
       else if (op.startsWith('-')) cls = 'diff-removed';
-      html += `<div class="diff-entry ${cls}">${op.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`;
+      html += `<div class="diff-entry ${cls}">${escapeHtml(op)}</div>`;
     }
-    html += `<div style="margin-top:8px;color:#888">${res.stats.added} added, ${res.stats.removed} removed, ${res.stats.modified} modified</div>`;
+    html += `<div style="margin-top:8px;color:#999">${res.stats.added} added, ${res.stats.removed} removed, ${res.stats.modified} modified</div>`;
     result.innerHTML = html;
   }
 }
@@ -586,11 +506,11 @@ async function loadBranches() {
     const current = b === res.current ? ' (current)' : '';
     html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">
       <span>${b}${current}</span>
-      ${b !== res.current ? `<button class="btn btn-sm" onclick="switchBranch('${b}')">Switch</button>
-      <button class="btn btn-sm" onclick="deleteBranch('${b}')" style="background:#f87171">Delete</button>` : ''}
+      ${b !== res.current ? `<button class="btn" onclick="switchBranch('${b}')">Switch</button>
+      <button class="btn" onclick="deleteBranch('${b}')" style="color:#dc2626">Delete</button>` : ''}
     </div>`;
   }
-  list.innerHTML = html || '<p style="color:#888">No branches</p>';
+  list.innerHTML = html || '<p style="color:#999">No branches</p>';
 }
 
 async function createBranch() {
@@ -599,62 +519,33 @@ async function createBranch() {
   await api('/branch', 'POST', { action: 'create', name });
   document.getElementById('branch-name').value = '';
   loadBranches();
-  updateBranchBadge();
 }
 
 async function switchBranch(name) {
-  const res = await api('/branch', 'POST', { action: 'switch', name });
-  if (res.status === 'ok') {
-    irDoc = res.document;
-    renderTree();
-    renderEditor();
-    updateBranchBadge();
-    loadBranches();
-  }
+  await api('/branch', 'POST', { action: 'switch', name });
+  await loadDoc();
+  loadBranches();
 }
 
 async function deleteBranch(name) {
   await api('/branch', 'POST', { action: 'delete', name });
   loadBranches();
-  updateBranchBadge();
 }
 
-async function updateBranchBadge() {
-  try {
-    const res = await api('/branches');
-    document.getElementById('branch-badge').textContent = res.current;
-  } catch (e) {}
-}
-
-async function showLog() {
-  const panel = document.getElementById('bottom-panel');
-  const content = document.getElementById('panel-content');
-  const title = document.getElementById('panel-title');
-  if (panel.style.display === 'block') {
-    panel.style.display = 'none';
-    return;
-  }
-  panel.style.display = 'block';
-  title.textContent = 'Commit Log';
+async function loadLog() {
   const commits = await api('/log');
+  const list = document.getElementById('log-list');
   let html = '';
   for (const c of commits) {
-    const date = new Date(c.timestamp * 1000).toISOString().replace('T', ' ').substring(0, 19);
+    const date = new Date(c.timestamp * 1000).toLocaleString();
     html += `<div class="log-entry">
       <span class="hash">${(c.hash || c.tree_hash || '').substring(0, 8)}</span>
-      <span class="message">${c.message}</span>
-      <span class="author">by ${c.author}</span>
-      <span class="date">${date}</span>
+      <span class="message">${escapeHtml(c.message)}</span>
+      <span class="author">by ${escapeHtml(c.author)}</span>
+      <span class="author">${date}</span>
     </div>`;
   }
-  content.innerHTML = html || '<p style="color:#888">No commits</p>';
-}
-
-function togglePanel() {
-  const content = document.getElementById('panel-content');
-  const toggle = document.getElementById('panel-toggle');
-  content.style.display = content.style.display === 'none' ? 'block' : 'none';
-  toggle.textContent = content.style.display === 'none' ? '▶' : '▼';
+  list.innerHTML = html || '<p style="color:#999">No commits</p>';
 }
 
 window.addEventListener('DOMContentLoaded', loadDoc);

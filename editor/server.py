@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Simple PoC editor server for semantic document IR."""
+"""Simple PoC editor server for semantic document IR - Typora-style."""
 
 import json
 import sys
@@ -14,10 +14,12 @@ from semantic_doc.ir.types import BlockType, InlineType, ListType
 from semantic_doc.serializers import from_dict, from_json, to_dict, to_json
 from semantic_doc.vcs import Repository, semantic_diff
 from semantic_doc.vcs.diff import semantic_diff as do_diff
+from semantic_doc.adapters import load as adapter_load
 
 EDITOR_DIR = Path(__file__).parent
 _repo = None
 _current_store = None
+_current_text = ""
 
 
 def get_repo():
@@ -37,14 +39,24 @@ def get_current_store():
         b = Builder()
         b.title("Untitled Document")
         b.section(1, "Introduction")
-        b.paragraph("Start editing here...")
+        b.paragraph("Start typing here...")
         _current_store = b.build()
     return _current_store
 
 
 def set_current_store(store):
-    global _current_store
+    global _current_store, _current_text
     _current_store = store
+
+
+def get_current_text():
+    global _current_text
+    return _current_text
+
+
+def set_current_text(text):
+    global _current_text
+    _current_text = text
 
 
 class EditorHandler(SimpleHTTPRequestHandler):
@@ -55,6 +67,8 @@ class EditorHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/document":
             self._send_json(to_dict(get_current_store()))
+        elif parsed.path == "/api/text":
+            self._send_json({"text": get_current_text()})
         elif parsed.path == "/api/log":
             repo = get_repo()
             commits = repo.log()
@@ -103,16 +117,41 @@ class EditorHandler(SimpleHTTPRequestHandler):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length) if content_length else b""
 
-        if parsed.path == "/api/document":
+        if parsed.path == "/api/text":
+            data = json.loads(body)
+            text = data.get("text", "")
+            set_current_text(text)
+            try:
+                store = adapter_load(text)
+                set_current_store(store)
+            except Exception:
+                b = Builder()
+                for line in text.split("\n\n"):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if line.startswith("#"):
+                        m = __import__("re").match(r"^(#{1,6})\s+(.*)", line)
+                        if m:
+                            level = len(m.group(1))
+                            b.section(level, m.group(2))
+                    else:
+                        b.paragraph(line)
+                set_current_store(b.build())
+            self._send_json({"status": "ok"})
+
+        elif parsed.path == "/api/document":
             data = json.loads(body)
             store = from_dict(data)
             set_current_store(store)
             self._send_json({"status": "ok"})
+
         elif parsed.path == "/api/commit":
             data = json.loads(body)
             repo = get_repo()
             commit = repo.commit(get_current_store(), message=data.get("message", "Editor commit"))
             self._send_json({"status": "ok", "commit": commit.to_dict()})
+
         elif parsed.path == "/api/checkout":
             data = json.loads(body)
             repo = get_repo()
@@ -123,6 +162,7 @@ class EditorHandler(SimpleHTTPRequestHandler):
                 self._send_json({"status": "ok", "document": to_dict(store)})
             except ValueError as e:
                 self._send_json({"status": "error", "message": str(e)}, 400)
+
         elif parsed.path == "/api/branch":
             data = json.loads(body)
             repo = get_repo()
@@ -142,13 +182,16 @@ class EditorHandler(SimpleHTTPRequestHandler):
             elif action == "delete":
                 repo.delete_branch(name)
                 self._send_json({"status": "ok"})
+
         elif parsed.path == "/api/new":
             b = Builder()
             b.title("Untitled Document")
             b.section(1, "Introduction")
-            b.paragraph("Start editing here...")
+            b.paragraph("Start typing here...")
             set_current_store(b.build())
-            self._send_json({"status": "ok", "document": to_dict(get_current_store())})
+            set_current_text("# Introduction\n\nStart typing here...")
+            self._send_json({"status": "ok", "document": to_dict(get_current_store()), "text": get_current_text()})
+
         elif parsed.path == "/api/load":
             data = json.loads(body)
             content = data.get("content", "")
@@ -157,12 +200,13 @@ class EditorHandler(SimpleHTTPRequestHandler):
                 if fmt == "json":
                     store = from_json(content)
                 else:
-                    from semantic_doc.adapters import load
-                    store = load(content)
+                    store = adapter_load(content)
                 set_current_store(store)
-                self._send_json({"status": "ok", "document": to_dict(store)})
+                set_current_text(content)
+                self._send_json({"status": "ok", "document": to_dict(store), "text": content})
             except Exception as e:
                 self._send_json({"status": "error", "message": str(e)}, 400)
+
         else:
             self.send_response(404)
             self.end_headers()
@@ -175,7 +219,7 @@ class EditorHandler(SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps(data).encode())
 
     def log_message(self, format, *args):
-        pass  # Suppress default logging
+        pass
 
 
 def main():
