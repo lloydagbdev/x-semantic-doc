@@ -121,6 +121,11 @@ header h1 { font-size: 15px; font-weight: 600; color: #111; margin-right: 12px; 
 .add-block button { width: 28px; height: 28px; border: 1px dashed #d1d5db; background: transparent; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 18px; }
 .add-block button:hover { border-color: #2563eb; color: #2563eb; background: #eff6ff; }
 
+.add-menu { position: absolute; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 4px; z-index: 100; min-width: 200px; }
+.add-menu .menu-item { padding: 6px 10px; border-radius: 5px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; color: #374151; }
+.add-menu .menu-item:hover { background: #f3f4f6; }
+.add-menu .menu-item .icon { width: 20px; text-align: center; }
+
 .cmd-palette { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); padding: 8px; z-index: 300; width: 320px; display: none; }
 .cmd-palette.active { display: block; }
 .cmd-palette input { width: 100%; border: none; outline: none; font-size: 14px; padding: 8px; background: transparent; }
@@ -250,6 +255,7 @@ let cmdPaletteOpen = false;
 let cmdSelectedIndex = 0;
 let cmdAfterEid = -1;
 let dragState = null;
+let openAddMenu = null;
 
 const BLOCK_TYPES = [
   { type: 'paragraph', icon: '¶', label: 'Paragraph', shortcut: 'p' },
@@ -769,8 +775,65 @@ async function convertBlock(eid, newType) {
 
 function showAddMenu(event, afterEid) {
   event.stopPropagation();
+  event.preventDefault();
+  closeAddMenu();
   cmdAfterEid = afterEid;
-  openCmdPalette(afterEid);
+
+  const menu = document.createElement('div');
+  menu.className = 'add-menu';
+  menu.style.position = 'fixed';
+
+  const rect = event.target.getBoundingClientRect();
+  menu.style.left = rect.left + 'px';
+  menu.style.top = (rect.bottom + 4) + 'px';
+
+  for (const bt of BLOCK_TYPES) {
+    const item = document.createElement('div');
+    item.className = 'menu-item';
+    item.innerHTML = `<span class="icon">${bt.icon}</span>${bt.label}`;
+    item.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      insertBlockDirect(bt.type, afterEid);
+    });
+    menu.appendChild(item);
+  }
+
+  document.body.appendChild(menu);
+  openAddMenu = menu;
+
+  requestAnimationFrame(() => {
+    document.addEventListener('mousedown', closeAddMenuOutside, { once: true });
+  });
+}
+
+function closeAddMenu() {
+  if (openAddMenu) {
+    openAddMenu.remove();
+    openAddMenu = null;
+  }
+}
+
+function closeAddMenuOutside(e) {
+  if (openAddMenu && !openAddMenu.contains(e.target)) {
+    closeAddMenu();
+  }
+}
+
+async function insertBlockDirect(type, afterEid) {
+  closeAddMenu();
+  const params = { after: afterEid === -1 ? null : afterEid, type };
+  if (type === 'code_block') params.language = 'python';
+  if (type === 'section') params.level = 1;
+  if (type === 'list') params.list_type = 'unordered';
+  if (type === 'admonition') params.admon_type = 'note';
+  const res = await api('/api/insert_block_after', 'POST', params);
+  doc = res.document;
+  render();
+  setTimeout(() => {
+    const newBlock = document.querySelector(`[data-eid="${res.eid}"] input, [data-eid="${res.eid}"] textarea`);
+    if (newBlock) newBlock.focus();
+  }, 50);
 }
 
 function openCmdPalette(afterEid) {
