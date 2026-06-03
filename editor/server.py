@@ -48,6 +48,9 @@ def set_current_store(store):
 
 
 class EditorHandler(SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=str(EDITOR_DIR), **kwargs)
+
     def do_GET(self):
         parsed = urlparse(self.path)
         if parsed.path == "/api/document":
@@ -93,8 +96,6 @@ class EditorHandler(SimpleHTTPRequestHandler):
             repo = get_repo()
             self._send_json({"branches": repo.list_branches(), "current": repo.head_ref})
         else:
-            if parsed.path == "/" or parsed.path == "/index.html":
-                self.path = str(EDITOR_DIR / "index.html")
             super().do_GET()
 
     def do_POST(self):
