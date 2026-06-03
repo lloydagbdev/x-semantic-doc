@@ -84,6 +84,25 @@ class DocumentStore:
 
         return eid
 
+    def insert_after(self, node_type: NodeType, after_eid: int) -> int:
+        """Insert a new node after the specified node."""
+        eid = self.entity_count
+        self.node_type.append(node_type)
+        self.node_parent.append(self.node_parent[after_eid])
+        self.node_prev.append(after_eid)
+        self.node_next.append(self.node_next[after_eid])
+        self.node_first_child.append(_NONE)
+
+        # Update the next pointer of the after node
+        self.node_next[after_eid] = eid
+
+        # Update the prev pointer of the old next node (if any)
+        old_next = self.node_next[eid]
+        if old_next != _NONE:
+            self.node_prev[old_next] = eid
+
+        return eid
+
     def _last_child_of(self, parent: int) -> int:
         first = self.node_first_child[parent]
         if first == _NONE:

@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Semantic Doc</title>
+<link rel="stylesheet" href="chrome.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <div id="toolbar">
+    <button class="tbtn" id="sidebar-toggle" title="Outline (Ctrl+\)">☰</button>
+    <div class="tb-sep"></div>
+    <button class="tbtn tbtn-bold"   id="fmt-bold"   title="Bold (Ctrl+B)">B</button>
+    <button class="tbtn tbtn-italic" id="fmt-italic" title="Italic (Ctrl+I)">I</button>
+    <button class="tbtn tbtn-code"   id="fmt-code"   title="Inline code (Ctrl+`)">` `</button>
+    <div class="tb-sep"></div>
+    <button class="tbtn" id="undo-btn" title="Undo (Ctrl+Z)">↩</button>
+    <button class="tbtn" id="redo-btn" title="Redo (Ctrl+Shift+Z)">↪</button>
+    <div class="tb-spacer"></div>
+    <span id="save-dot" class="saved"></span>
+    <span id="save-label" style="font-size:12px;color:var(--text-2);margin-left:4px">Saved</span>
+    <div class="tb-sep"></div>
+    <button class="tbtn" id="vcs-toggle">⎇ VCS</button>
+    <button class="tbtn tbtn-primary" id="commit-btn">Commit</button>
+  </div>
+
+  <div id="main">
+    <div id="sidebar">
+      <div id="sidebar-header">Outline</div>
+      <div id="outline"></div>
+    </div>
+
+    <div id="editor-wrap">
+      <div id="editor">
+        <div id="doc-title" contenteditable="true" data-placeholder="Untitled" spellcheck="false"></div>
+        <div id="blocks"></div>
+        <div class="add-root">
+          <button class="add-root-btn" id="add-root-btn">Add block</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="vcs-panel">
+      <div class="vcs-section">
+        <div class="vcs-section-header">Commit</div>
+        <div class="vcs-section-body">
+          <input class="vcs-input" id="commit-msg" placeholder="Commit message…">
+          <button class="vcs-btn vcs-btn-primary" id="do-commit">Commit</button>
+        </div>
+      </div>
+      <div class="vcs-section">
+        <div class="vcs-section-header">Changes <span id="diff-badge"></span></div>
+        <div class="vcs-section-body" id="diff-body"></div>
+      </div>
+      <div class="vcs-section">
+        <div class="vcs-section-header">Branches</div>
+        <div class="vcs-section-body">
+          <div id="branch-list"></div>
+          <input class="vcs-input" id="new-branch-name" placeholder="New branch name…" style="margin-top:8px">
+          <button class="vcs-btn" id="create-branch">Create branch</button>
+        </div>
+      </div>
+      <div class="vcs-section">
+        <div class="vcs-section-header">History</div>
+        <div class="vcs-section-body" id="log-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="statusbar">
+    <span id="status-left">Ready</span>
+    <span id="status-right">/ to insert · Ctrl+B bold · Ctrl+I italic · Ctrl+` code</span>
+  </div>
+</div>
+
+<div id="block-picker">
+  <input id="picker-search" placeholder="Filter…" autocomplete="off" spellcheck="false">
+  <div id="picker-list"></div>
+</div>
+
+<div id="format-bar">
+  <button class="fmt-btn bold"   data-fmt="bold">B</button>
+  <button class="fmt-btn italic" data-fmt="italic">I</button>
+  <div class="fmt-sep"></div>
+  <button class="fmt-btn code"   data-fmt="code">` `</button>
+  <button class="fmt-btn"        data-fmt="link" title="Link">⊞</button>
+</div>
+
+<div id="toast">
+  <span id="toast-msg"></span>
+  <button class="toast-undo" id="toast-undo-btn">Undo</button>
+</div>
+
+<script>
+'use strict';
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let doc = null;
+let api = null;
+let saveTimer  = null;
+let toastTimer = null;
+let pickerAfterEid    = -1;
+let pickerSelectedIdx = 0;
+let activeCEid = -1;
+
+const BLOCK_TYPES = [
+  { type: 'paragraph',     label: 'Paragraph',   icon: '¶',    hint: 'p' },
+  { type: 'section',       label: 'Heading',      icon: '§',    hint: 'h' },
+  { type: 'code_block',    label: 'Code',         icon: '</>',  hint: 'c' },
+  { type: 'list',          label: 'Bullet list',  icon: '•',    hint: 'l' },
+  { type: 'blockquote',    label: 'Quote',        icon: '❝',    hint: 'q' },
+  { type: 'table',         label: 'Table',        icon: '⊞',    hint: 't' },
+  { type: 'admonition',    label: 'Admonition',   icon: '⚠',    hint: 'a' },
+  { type: 'thematic_break',label: 'Divider',      icon: '—',    hint: 'd' },
+];
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+async function init() {
+  if (window.pywebview && window.pywebview.api) {
+    api = window.pywebview.api;
+  } else {
+    await new Promise(r => window.addEventListener('pywebviewready', r, { once: true }));
+    api = window.pywebview.api;
+  }
+
+  doc = await api.get_document();
+  renderDocument();
+  refreshVCS();
+
+  // Toolbar
+  document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
+  document.getElementById('vcs-toggle').addEventListener('click', () => toggleVCS());
+  document.getElementById('undo-btn').addEventListener('click', doUndo);
+  document.getElementById('redo-btn').addEventListener('click', doRedo);
+  document.getElementById('fmt-bold').addEventListener('click',   () => applyFmt('bold'));
+  document.getElementById('fmt-italic').addEventListener('click', () => applyFmt('italic'));
+  document.getElementById('fmt-code').addEventListener('click',   () => applyFmt('code'));
+  document.getElementById('commit-btn').addEventListener('click', () => { toggleVCS(true); document.getElementById('commit-msg').focus(); });
+  document.getElementById('do-commit').addEventListener('click', doCommit);
+  document.getElementById('create-branch').addEventListener('click', doCreateBranch);
+  document.getElementById('add-root-btn').addEventListener('click', e => showPicker(e, -1));
+
+  // Format bar
+  document.getElementById('format-bar').addEventListener('mousedown', e => {
+    e.preventDefault();
+    const btn = e.target.closest('[data-fmt]');
+    if (btn) applyFmt(btn.dataset.fmt);
+  });
+
+  // Toast undo
+  document.getElementById('toast-undo-btn').addEventListener('click', doUndo);
+
+  // Title
+  const titleEl = document.getElementById('doc-title');
+  titleEl.addEventListener('input', () => {
+    setSave('unsaved');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      setSave('saving');
+      await api.update_title(titleEl.textContent.trim());
+      setSave('saved');
+    }, 600);
+  });
+  titleEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); focusFirstBlock(); }
+  });
+
+  // Global keys
+  document.addEventListener('keydown', globalKeydown);
+  document.addEventListener('selectionchange', onSelectionChange);
+
+  // Picker
+  document.getElementById('picker-search').addEventListener('input', renderPickerList);
+  document.getElementById('picker-search').addEventListener('keydown', pickerKeydown);
+  document.addEventListener('mousedown', e => {
+    if (!document.getElementById('block-picker').contains(e.target)) closePicker();
+    if (!document.getElementById('format-bar').contains(e.target)) hideFormatBar();
+  });
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderDocument() {
+  document.title = doc.title || 'Untitled';
+  const titleEl = document.getElementById('doc-title');
+  if (document.activeElement !== titleEl) titleEl.textContent = doc.title || '';
+  renderBlocks(doc.blocks, document.getElementById('blocks'));
+  renderOutline(doc.blocks);
+  updateStatus();
+}
+
+function renderBlocks(blocks, container) {
+  container.innerHTML = '';
+  for (const block of blocks) {
+    container.appendChild(makeBlockEl(block));
+  }
+}
+
+function makeBlockEl(block) {
+  const wrap = document.createElement('div');
+  wrap.className = 'block block-' + block.type;
+  wrap.dataset.eid  = block.eid;
+  wrap.dataset.type = block.type;
+  if (block.level) wrap.dataset.level = block.level;
+  if (block.admon_type) wrap.dataset.admon = block.admon_type;
+
+  // Gutter
+  const gutter = document.createElement('div');
+  gutter.className = 'block-gutter';
+  gutter.innerHTML = `
+    <button class="gutter-btn gutter-drag" title="Drag to reorder">⠿</button>
+    <button class="gutter-btn" title="Delete" data-action="del">×</button>`;
+  gutter.addEventListener('click', e => {
+    if (e.target.closest('[data-action="del"]')) deleteBlock(block.eid);
+  });
+  wrap.appendChild(gutter);
+
+  const addBtn = document.createElement('div');
+  addBtn.className = 'block-add';
+  addBtn.innerHTML = '<button class="gutter-btn" title="Add block below">+</button>';
+  addBtn.addEventListener('click', e => showPicker(e, block.eid));
+  wrap.appendChild(addBtn);
+
+  // Content
+  const content = makeBlockContent(block);
+  if (content) wrap.appendChild(content);
+
+  // Section children
+  if (block.type === 'section' && block.children?.length) {
+    const ch = document.createElement('div');
+    ch.className = 'section-children';
+    renderBlocks(block.children, ch);
+    wrap.appendChild(ch);
+  }
+
+  return wrap;
+}
+
+function makeBlockContent(block) {
+  switch (block.type) {
+    case 'paragraph':     return makeParagraph(block);
+    case 'section':       return makeSection(block);
+    case 'blockquote':    return makeBlockquote(block);
+    case 'code_block':    return makeCode(block);
+    case 'list':          return makeList(block);
+    case 'table':         return makeTable(block);
+    case 'admonition':    return makeAdmonition(block);
+    case 'thematic_break':{ const d = document.createElement('div'); d.className='block-hr'; d.innerHTML='<hr>'; return d; }
+    default: return null;
+  }
+}
+
+function makeEditable(block, placeholder = '') {
+  const el = document.createElement('div');
+  el.contentEditable = 'true';
+  el.spellcheck = true;
+  el.dataset.placeholder = placeholder;
+  el.innerHTML = inlinesToHTML(block.inlines || []);
+  wireEditable(el, block.eid);
+  return el;
+}
+
+function wireEditable(el, eid) {
+  let syncTimer = null;
+  el.addEventListener('focus', () => { activeCEid = eid; });
+  el.addEventListener('blur',  () => {
+    if (activeCEid === eid) activeCEid = -1;
+    clearTimeout(syncTimer);
+    syncEditable(el, eid);
+  });
+  el.addEventListener('input', async () => {
+    // Block-level markdown triggers (paragraphs only, short text)
+    if (el.closest('.block-paragraph') && el.textContent.length <= 12) {
+      if (await checkBlockTrigger(el, eid)) return;
+    }
+    // Inline markdown triggers
+    checkInlineTrigger(el);
+    // Debounced IR sync
+    setSave('unsaved');
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => syncEditable(el, eid), 400);
+  });
+  el.addEventListener('keydown', e => ceKeydown(e, eid, el));
+  el.addEventListener('paste', e => {
+    e.preventDefault();
+    document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+  });
+}
+
+async function syncEditable(el, eid) {
+  setSave('saving');
+  await api.update_inline(eid, htmlToInlines(el));
+  setSave('saved');
+  updateStatus();
+}
+
+function makeParagraph(block) {
+  return makeEditable(block, 'Type something… or / for blocks');
+}
+
+function makeSection(block) {
+  const wrap = document.createElement('div');
+  wrap.appendChild(makeEditable(block, 'Heading'));
+  return wrap;
+}
+
+function makeBlockquote(block) {
+  return makeEditable(block, 'Quote…');
+}
+
+function makeCode(block) {
+  const wrap = document.createElement('div');
+  const header = document.createElement('div');
+  header.className = 'code-header';
+  const langs = ['','python','javascript','typescript','rust','go','bash','json','yaml','html','css','sql','markdown'];
+  const sel = document.createElement('select');
+  sel.className = 'lang-select';
+  langs.forEach(l => {
+    const o = document.createElement('option');
+    o.value = l; o.textContent = l || 'plain';
+    if (l === block.language) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', () => api.update_code(block.eid, ta.value, sel.value));
+  header.appendChild(sel);
+  wrap.appendChild(header);
+
+  const ta = document.createElement('textarea');
+  ta.value = block.content || '';
+  ta.spellcheck = false;
+  ta.rows = Math.max(3, (block.content || '').split('\n').length);
+  ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; setSave('unsaved'); });
+  ta.addEventListener('blur',  async () => { setSave('saving'); await api.update_code(block.eid, ta.value, sel.value); setSave('saved'); });
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const s = ta.selectionStart;
+      ta.value = ta.value.slice(0, s) + '  ' + ta.value.slice(ta.selectionEnd);
+      ta.selectionStart = ta.selectionEnd = s + 2;
+    }
+  });
+  setTimeout(() => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; });
+  wrap.appendChild(ta);
+  return wrap;
+}
+
+function makeList(block) {
+  const wrap = document.createElement('div');
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:4px';
+  const sel = document.createElement('select');
+  sel.style.cssText = 'font-size:12px;border:1px solid var(--border);border-radius:4px;padding:2px 6px;background:var(--bg);outline:none;cursor:pointer;font-family:inherit';
+  [['unordered','Bullet'],['ordered','Numbered'],['checklist','Checklist']].forEach(([v,l]) => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = l;
+    if (v === block.list_type) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', async () => { await api.set_list_type(block.eid, sel.value); refreshDoc(); });
+  header.appendChild(sel);
+  wrap.appendChild(header);
+
+  (block.items || []).forEach((item, idx) => wrap.appendChild(makeListItem(block, item, idx)));
+
+  const addBtn = document.createElement('button');
+  addBtn.style.cssText = 'font-size:12px;color:var(--text-ph);background:none;border:none;cursor:pointer;padding:4px 0';
+  addBtn.textContent = '+ Add item';
+  addBtn.addEventListener('click', async () => {
+    const last = (block.items || []).at(-1);
+    const res = await api.add_list_item(block.eid, last?.eid ?? -1);
+    if (res.ok) { doc = res.document; refreshDoc(); }
+  });
+  wrap.appendChild(addBtn);
+  return wrap;
+}
+
+function makeListItem(block, item, idx) {
+  const row = document.createElement('div');
+  row.className = 'list-item';
+  row.dataset.itemEid = item.eid;
+
+  if (block.list_type === 'checklist') {
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = item.checked || false;
+    cb.addEventListener('change', async () => {
+      await api.toggle_checked(item.eid);
+      el.classList.toggle('checked', cb.checked);
+    });
+    row.appendChild(cb);
+  } else {
+    const bullet = document.createElement('span');
+    bullet.className = 'list-bullet';
+    bullet.textContent = block.list_type === 'ordered' ? (idx + 1) + '.' : '•';
+    row.appendChild(bullet);
+  }
+
+  const el = document.createElement('div');
+  el.contentEditable = 'true'; el.spellcheck = true;
+  el.dataset.placeholder = 'List item…';
+  el.innerHTML = inlinesToHTML(item.inlines || []);
+  if (item.checked) el.classList.add('checked');
+
+  let syncTimer = null;
+  el.addEventListener('input', () => {
+    setSave('unsaved');
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(async () => { setSave('saving'); await api.update_inline(item.eid, htmlToInlines(el)); setSave('saved'); }, 400);
+  });
+  el.addEventListener('keydown', async e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      await api.update_inline(item.eid, htmlToInlines(el));
+      const res = await api.add_list_item(block.eid, item.eid);
+      if (res.ok) {
+        doc = res.document; refreshDoc();
+        setTimeout(() => {
+          const n = document.querySelector(`.list-item[data-item-eid="${res.item_eid}"] [contenteditable]`);
+          if (n) n.focus();
+        }, 30);
+      }
+    }
+    if (e.key === 'Backspace' && el.textContent === '') {
+      e.preventDefault();
+      const res = await api.delete_list_item(item.eid);
+      if (res.ok) { doc = res.document; refreshDoc(); showToast('Item deleted'); }
+    }
+  });
+  row.appendChild(el);
+
+  const del = document.createElement('button');
+  del.className = 'list-del'; del.textContent = '×';
+  del.addEventListener('click', async () => {
+    const res = await api.delete_list_item(item.eid);
+    if (res.ok) { doc = res.document; refreshDoc(); showToast('Item deleted'); }
+  });
+  row.appendChild(del);
+  return row;
+}
+
+function makeTable(block) {
+  const wrap = document.createElement('div');
+  const table = document.createElement('table');
+  (block.rows || []).forEach((row, ri) => {
+    const tr = document.createElement('tr');
+    row.cells.forEach(cell => {
+      const td = document.createElement(ri === 0 ? 'th' : 'td');
+      const el = document.createElement('div');
+      el.contentEditable = 'true'; el.spellcheck = true;
+      el.innerHTML = inlinesToHTML(cell.inlines || []);
+      let t = null;
+      el.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => api.update_table_cell(cell.eid, htmlToInlines(el)), 400); });
+      td.appendChild(el); tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+  wrap.appendChild(table);
+
+  const acts = document.createElement('div');
+  acts.className = 'table-actions';
+  const mkBtn = (label, fn) => {
+    const b = document.createElement('button');
+    b.style.cssText = 'font-size:12px;border:1px solid var(--border);border-radius:4px;padding:3px 8px;background:var(--bg);cursor:pointer;font-family:inherit';
+    b.textContent = label; b.addEventListener('click', fn); return b;
+  };
+  acts.appendChild(mkBtn('+ row', async () => { const r = await api.add_table_row(block.eid); if (r.ok) { doc = r.document; refreshDoc(); } }));
+  acts.appendChild(mkBtn('+ col', async () => { const r = await api.add_table_col(block.eid);  if (r.ok) { doc = r.document; refreshDoc(); } }));
+  wrap.appendChild(acts);
+  return wrap;
+}
+
+function makeAdmonition(block) {
+  const wrap = document.createElement('div');
+  const icons = { note:'💡', tip:'✨', warning:'⚠️', caution:'🚨', important:'⚡' };
+  const header = document.createElement('div');
+  header.className = 'admon-header';
+  const icon = document.createElement('span');
+  icon.textContent = icons[block.admon_type] || '💡';
+  header.appendChild(icon);
+  const sel = document.createElement('select');
+  sel.className = 'admon-type-select';
+  ['note','tip','warning','caution','important'].forEach(t => {
+    const o = document.createElement('option');
+    o.value = t; o.textContent = t.toUpperCase();
+    if (t === block.admon_type) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', async () => { await api.set_admon_type(block.eid, sel.value); refreshDoc(); });
+  header.appendChild(sel);
+  wrap.appendChild(header);
+  wrap.appendChild(makeEditable(block, 'Note…'));
+  return wrap;
+}
+
+
+// ── Outline ───────────────────────────────────────────────────────────────────
+function renderOutline(blocks) {
+  const outline = document.getElementById('outline');
+  outline.innerHTML = '';
+  function walk(list, depth) {
+    for (const b of list) {
+      if (b.type !== 'section') continue;
+      const item = document.createElement('div');
+      item.className = 'ol-item';
+      item.style.paddingLeft = (depth * 10 + 8) + 'px';
+      const lvl = document.createElement('span'); lvl.className = 'ol-level'; lvl.textContent = 'H' + b.level;
+      const lbl = document.createElement('span'); lbl.textContent = inlinesToText(b.inlines || []) || '(empty)';
+      item.appendChild(lvl); item.appendChild(lbl);
+      item.addEventListener('click', () => document.querySelector(`[data-eid="${b.eid}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+      outline.appendChild(item);
+      if (b.children) walk(b.children, depth + 1);
+    }
+  }
+  walk(blocks, 0);
+}
+
+// ── Inline HTML ↔ nodes ───────────────────────────────────────────────────────
+function inlinesToHTML(nodes) {
+  return (nodes || []).map(n => {
+    if (n.type === 'text')        return escHtml(n.text);
+    if (n.type === 'strong')      return `<strong>${inlinesToHTML(n.children)}</strong>`;
+    if (n.type === 'emphasis')    return `<em>${inlinesToHTML(n.children)}</em>`;
+    if (n.type === 'inline_code') return `<code>${escHtml(n.text)}</code>`;
+    if (n.type === 'link')        return `<a href="${escAttr(n.url)}">${inlinesToHTML(n.children)}</a>`;
+    if (n.type === 'image')       return `<img src="${escAttr(n.url)}" alt="${escAttr(n.alt || '')}">`;
+    if (n.type === 'line_break')  return '<br>';
+    return '';
+  }).join('');
+}
+
+function htmlToInlines(el) {
+  const nodes = [];
+  for (const child of el.childNodes) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      // Strip zero-width spaces used as cursor anchors
+      const text = child.textContent.replace(/​/g, '');
+      if (text) nodes.push({ type: 'text', text });
+    } else if (child.nodeName === 'STRONG' || child.nodeName === 'B') {
+      nodes.push({ type: 'strong',   children: htmlToInlines(child) });
+    } else if (child.nodeName === 'EM' || child.nodeName === 'I') {
+      nodes.push({ type: 'emphasis', children: htmlToInlines(child) });
+    } else if (child.nodeName === 'CODE') {
+      nodes.push({ type: 'inline_code', text: child.textContent });
+    } else if (child.nodeName === 'A') {
+      nodes.push({ type: 'link', url: child.getAttribute('href') || '', children: htmlToInlines(child) });
+    } else if (child.nodeName === 'BR') {
+      nodes.push({ type: 'line_break' });
+    } else if (child.nodeType === Node.ELEMENT_NODE) {
+      nodes.push(...htmlToInlines(child)); // flatten unknown elements
+    }
+  }
+  return nodes;
+}
+
+function inlinesToText(nodes) {
+  return (nodes || []).map(n =>
+    (n.type === 'text' || n.type === 'inline_code') ? (n.text || '') : inlinesToText(n.children)
+  ).join('');
+}
+
+// ── Markdown block triggers ───────────────────────────────────────────────────
+// Fire on `input` for space-terminated patterns (# , - , > , etc.)
+async function checkBlockTrigger(el, eid) {
+  const text = el.textContent;
+
+  // Headings: # through ####
+  const hm = text.match(/^(#{1,4}) $/);
+  if (hm) return triggerConvert(eid, 'section', { level: hm[1].length });
+
+  if (text === '- ' || text === '* ')    return triggerConvert(eid, 'list', { list_type: 'unordered' });
+  if (/^\d+\. $/.test(text))             return triggerConvert(eid, 'list', { list_type: 'ordered' });
+  if (text === '- [ ] ' || text === '- [x] ')
+                                          return triggerConvert(eid, 'list', { list_type: 'checklist' });
+  if (text === '> ')                     return triggerConvert(eid, 'blockquote', {});
+
+  return false;
+}
+
+async function triggerConvert(eid, type, opts) {
+  const res = await api.convert_block(eid, type, opts);
+  if (res.ok) { doc = res.document; refreshDoc(); focusBlock(res.eid); }
+  return true;
+}
+
+// ── Markdown inline triggers ──────────────────────────────────────────────────
+// Fire on `input`. Detect **bold**, *italic*, `code` closing markers.
+function checkInlineTrigger(el) {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount || !sel.isCollapsed) return false;
+  const range = sel.getRangeAt(0);
+  const node = range.startContainer;
+  if (node.nodeType !== Node.TEXT_NODE) return false;
+
+  const text = node.textContent;
+  const pos  = range.startOffset;
+  const typed = text.slice(0, pos);   // text from start up to cursor
+
+  // **bold** — cursor just after closing **
+  if (typed.length >= 5 && typed.endsWith('**')) {
+    const inner = typed.slice(0, -2);
+    const open  = inner.lastIndexOf('**');
+    if (open >= 0) {
+      const content = inner.slice(open + 2);
+      if (content.length > 0 && !content.includes('\n')) {
+        replaceWithInline(node, open, pos, 'strong', content);
+        return true;
+      }
+    }
+  }
+
+  // *italic* — cursor just after closing single *
+  if (typed.length >= 3 && typed.endsWith('*') && !typed.endsWith('**')) {
+    const inner = typed.slice(0, -1);
+    const open  = findSingleStar(inner);
+    if (open >= 0) {
+      const content = inner.slice(open + 1);
+      if (content.length > 0 && !content.includes('*') && !content.includes('\n')) {
+        replaceWithInline(node, open, pos, 'em', content);
+        return true;
+      }
+    }
+  }
+
+  // `code` — cursor just after closing backtick
+  if (typed.length >= 3 && typed.endsWith('`') && !typed.endsWith('``')) {
+    const inner = typed.slice(0, -1);
+    const open  = inner.lastIndexOf('`');
+    if (open >= 0) {
+      const content = inner.slice(open + 1);
+      if (content.length > 0 && !content.includes('`') && !content.includes('\n')) {
+        replaceWithInline(node, open, pos, 'code', content);
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function findSingleStar(text) {
+  for (let i = text.length - 1; i >= 0; i--) {
+    if (text[i] !== '*') continue;
+    const prev = i > 0 && text[i - 1] === '*';
+    const next = i < text.length - 1 && text[i + 1] === '*';
+    if (!prev && !next) return i;
+    if (prev) i--; // skip over **
+  }
+  return -1;
+}
+
+function replaceWithInline(textNode, openIdx, closeEnd, tag, content) {
+  const full   = textNode.textContent;
+  const before = full.slice(0, openIdx);
+  const after  = full.slice(closeEnd);
+
+  const parent     = textNode.parentNode;
+  const beforeNode = document.createTextNode(before);
+  const inlineEl   = document.createElement(tag);
+  inlineEl.textContent = content;
+  const afterNode  = document.createTextNode(after);
+
+  parent.insertBefore(beforeNode, textNode);
+  parent.insertBefore(inlineEl, textNode);
+  parent.insertBefore(afterNode, textNode);
+  parent.removeChild(textNode);
+
+  // Position cursor right after the new inline element
+  const sel = window.getSelection();
+  const r = document.createRange();
+  if (after.length > 0) {
+    r.setStart(afterNode, 0);
+  } else {
+    r.setStartAfter(inlineEl);
+  }
+  r.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(r);
+}
+
+// ── Block keydown ─────────────────────────────────────────────────────────────
+async function ceKeydown(e, eid, el) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    // Enter-based block triggers (code block, thematic break)
+    const txt = el.textContent.trim();
+    if (txt === '```') { e.preventDefault(); return triggerConvert(eid, 'code_block', {}); }
+    if (txt === '---' || txt === '***') { e.preventDefault(); return triggerConvert(eid, 'thematic_break', {}); }
+
+    e.preventDefault();
+    await api.update_inline(eid, htmlToInlines(el));
+    const res = await api.insert_block('paragraph', eid);
+    if (res.ok) { doc = res.document; refreshDoc(); focusBlock(res.eid); }
+    return;
+  }
+  if (e.key === 'Backspace' && el.textContent === '') {
+    e.preventDefault();
+    const res = await api.delete_block(eid);
+    if (res.ok) { doc = res.document; refreshDoc(); showToast('Block deleted'); }
+    return;
+  }
+  if (e.key === '/' && el.textContent === '') {
+    e.preventDefault();
+    const rect = el.getBoundingClientRect();
+    showPicker({ clientX: rect.left, clientY: rect.bottom }, eid);
+    return;
+  }
+  if (e.key === 'ArrowUp' && e.target.selectionStart === 0) {
+    const prev = adjacentBlock(eid, 'up');
+    if (prev) { e.preventDefault(); focusBlockEl(prev, 'end'); }
+  }
+  if (e.key === 'ArrowDown') {
+    const v = e.target.value ?? e.target.textContent;
+    if (e.target.selectionStart === (v?.length ?? 0)) {
+      const next = adjacentBlock(eid, 'down');
+      if (next) { e.preventDefault(); focusBlockEl(next, 'start'); }
+    }
+  }
+}
+
+// ── Format toolbar ────────────────────────────────────────────────────────────
+function applyFmt(fmt) {
+  document.execCommand('styleWithCSS', false, false);
+  if (fmt === 'bold')   document.execCommand('bold');
+  if (fmt === 'italic') document.execCommand('italic');
+  if (fmt === 'code')   applyCodeFmt();
+  if (fmt === 'link')   applyLinkFmt();
+  const active = document.activeElement?.closest('[contenteditable]');
+  if (active) normalizeInlines(active);
+}
+
+function applyCodeFmt() {
+  const sel = window.getSelection();
+  if (!sel?.rangeCount || sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  const existing = getAncestor(range.commonAncestorContainer, 'CODE');
+  if (existing) {
+    unwrapEl(existing);
+  } else {
+    try {
+      const code = document.createElement('code');
+      code.textContent = range.toString();
+      range.deleteContents();
+      range.insertNode(code);
+      range.setStartAfter(code); range.collapse(true);
+      sel.removeAllRanges(); sel.addRange(range);
+    } catch {}
+  }
+}
+
+function applyLinkFmt() {
+  const sel = window.getSelection();
+  if (!sel?.rangeCount || sel.isCollapsed) return;
+  const url = prompt('URL:');
+  if (url) document.execCommand('createLink', false, url);
+}
+
+function normalizeInlines(el) {
+  el.querySelectorAll('b').forEach(b => { const s = document.createElement('strong'); s.innerHTML = b.innerHTML; b.replaceWith(s); });
+  el.querySelectorAll('i').forEach(i => { const em = document.createElement('em');     em.innerHTML = i.innerHTML; i.replaceWith(em); });
+  el.querySelectorAll('span[style]').forEach(span => {
+    const st = span.getAttribute('style') || '';
+    if (st.includes('font-weight') && st.includes('bold')) {
+      const s = document.createElement('strong'); s.innerHTML = span.innerHTML; span.replaceWith(s);
+    } else if (st.includes('font-style') && st.includes('italic')) {
+      const em = document.createElement('em'); em.innerHTML = span.innerHTML; span.replaceWith(em);
+    } else {
+      span.replaceWith(...span.childNodes);
+    }
+  });
+}
+
+function getAncestor(node, tag) {
+  let cur = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  while (cur && cur !== document.body) { if (cur.nodeName === tag) return cur; cur = cur.parentElement; }
+  return null;
+}
+function unwrapEl(el) { const p = el.parentNode; while (el.firstChild) p.insertBefore(el.firstChild, el); p.removeChild(el); }
+
+// ── Floating format bar ───────────────────────────────────────────────────────
+function onSelectionChange() {
+  const sel = window.getSelection();
+  const fb  = document.getElementById('format-bar');
+  if (!sel || sel.isCollapsed || !sel.rangeCount) { hideFormatBar(); return; }
+  const range = sel.getRangeAt(0);
+  const anc   = range.commonAncestorContainer;
+  const block = (anc.nodeType === 1 ? anc : anc.parentElement)?.closest('[contenteditable]');
+  if (!block) { hideFormatBar(); return; }
+  const rect = range.getBoundingClientRect();
+  if (rect.width === 0) { hideFormatBar(); return; }
+  fb.style.left = Math.max(4, rect.left + rect.width / 2 - 70) + 'px';
+  fb.style.top  = (rect.top - 46 + window.scrollY) + 'px';
+  fb.classList.add('show');
+}
+function hideFormatBar() { document.getElementById('format-bar').classList.remove('show'); }
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function adjacentBlock(eid, dir) {
+  const all = Array.from(document.querySelectorAll('#blocks .block[data-eid]'));
+  const idx = all.findIndex(el => parseInt(el.dataset.eid) === eid);
+  if (idx === -1) return null;
+  return all[dir === 'up' ? idx - 1 : idx + 1] || null;
+}
+
+function focusBlockEl(blockEl, pos) {
+  const target = blockEl.querySelector('[contenteditable], textarea');
+  if (!target) return;
+  target.focus();
+  try {
+    if (target.tagName === 'TEXTAREA') {
+      const p = pos === 'end' ? target.value.length : 0;
+      target.setSelectionRange(p, p);
+    } else {
+      const sel = window.getSelection();
+      const r = document.createRange();
+      if (pos === 'end' && target.lastChild) r.setStartAfter(target.lastChild);
+      else r.setStart(target, 0);
+      r.collapse(true); sel.removeAllRanges(); sel.addRange(r);
+    }
+  } catch {}
+}
+
+function focusBlock(eid) {
+  setTimeout(() => {
+    const el = document.querySelector(`[data-eid="${eid}"] [contenteditable], [data-eid="${eid}"] textarea`);
+    if (el) el.focus();
+  }, 30);
+}
+function focusFirstBlock() {
+  const el = document.querySelector('#blocks [contenteditable], #blocks textarea');
+  if (el) el.focus();
+}
+
+// ── Block picker ──────────────────────────────────────────────────────────────
+function showPicker(e, afterEid) {
+  pickerAfterEid    = afterEid;
+  pickerSelectedIdx = 0;
+  const picker = document.getElementById('block-picker');
+  picker.style.left = Math.min(e.clientX, window.innerWidth - 230) + 'px';
+  picker.style.top  = (e.clientY + 8) + 'px';
+  picker.classList.add('show');
+  document.getElementById('picker-search').value = '';
+  renderPickerList();
+  setTimeout(() => document.getElementById('picker-search').focus(), 10);
+}
+function closePicker() { document.getElementById('block-picker').classList.remove('show'); }
+
+function renderPickerList() {
+  const q = document.getElementById('picker-search').value.toLowerCase();
+  const filtered = BLOCK_TYPES.filter(bt => bt.label.toLowerCase().includes(q) || bt.hint.includes(q));
+  const list = document.getElementById('picker-list');
+  list.innerHTML = '';
+  filtered.forEach((bt, i) => {
+    const item = document.createElement('div');
+    item.className = 'picker-item' + (i === pickerSelectedIdx ? ' selected' : '');
+    item.innerHTML = `<div class="picker-icon">${bt.icon}</div><span class="picker-label">${bt.label}</span><span class="picker-hint">${bt.hint}</span>`;
+    item.addEventListener('mousedown', e => { e.preventDefault(); insertBlock(bt.type); });
+    list.appendChild(item);
+  });
+}
+
+function pickerKeydown(e) {
+  const items = document.querySelectorAll('#picker-list .picker-item');
+  if (e.key === 'ArrowDown') { e.preventDefault(); pickerSelectedIdx = Math.min(pickerSelectedIdx + 1, items.length - 1); renderPickerList(); }
+  if (e.key === 'ArrowUp')   { e.preventDefault(); pickerSelectedIdx = Math.max(pickerSelectedIdx - 1, 0); renderPickerList(); }
+  if (e.key === 'Enter')     { e.preventDefault(); items[pickerSelectedIdx]?.dispatchEvent(new Event('mousedown')); }
+  if (e.key === 'Escape')    closePicker();
+}
+
+async function insertBlock(type) {
+  closePicker();
+  const opts = type === 'section' ? { level: 2 } : {};
+  const res = await api.insert_block(type, pickerAfterEid, opts);
+  if (res.ok) { doc = res.document; refreshDoc(); focusBlock(res.eid); }
+}
+
+// ── Block actions ─────────────────────────────────────────────────────────────
+async function deleteBlock(eid) {
+  const res = await api.delete_block(eid);
+  if (res.ok) { doc = res.document; refreshDoc(); showToast('Block deleted'); }
+}
+
+// ── Undo / Redo ───────────────────────────────────────────────────────────────
+async function doUndo() { const r = await api.undo(); if (r.ok) { doc = r.document; refreshDoc(); } }
+async function doRedo() { const r = await api.redo(); if (r.ok) { doc = r.document; refreshDoc(); } }
+
+// ── VCS ───────────────────────────────────────────────────────────────────────
+async function doCommit() {
+  const msg = document.getElementById('commit-msg').value.trim();
+  if (!msg) { document.getElementById('commit-msg').focus(); return; }
+  const res = await api.commit(msg);
+  if (res.ok) { document.getElementById('commit-msg').value = ''; showToast(`Committed ${res.hash}`, false); refreshVCS(); }
+}
+
+async function doCreateBranch() {
+  const name = document.getElementById('new-branch-name').value.trim();
+  if (!name) return;
+  await api.create_branch(name);
+  document.getElementById('new-branch-name').value = '';
+  refreshVCS();
+}
+
+async function refreshVCS() {
+  const clsMap = { '+':'added', '-':'removed', '~':'modified', '↔':'moved', '✎':'renamed' };
+
+  const diff = await api.get_diff();
+  const diffBody = document.getElementById('diff-body');
+  const badge    = document.getElementById('diff-badge');
+  if (diff.is_clean) {
+    diffBody.innerHTML = '<span style="font-size:12px;color:var(--text-ph)">No changes since last commit.</span>';
+    badge.textContent = '';
+  } else {
+    diffBody.innerHTML = diff.ops.map(op =>
+      `<div class="diff-op ${clsMap[op[0]] || ''}">${escHtml(op)}</div>`
+    ).join('');
+    const s = diff.stats, total = Object.values(s).reduce((a,b) => a+b, 0);
+    badge.textContent = total ? `(${total})` : '';
+  }
+
+  const commits = await api.get_log();
+  document.getElementById('log-body').innerHTML = commits.length
+    ? commits.slice(0, 20).map(c => `
+        <div class="commit-entry">
+          <span class="commit-hash">${escHtml(c.hash)}</span>
+          <div class="commit-msg">${escHtml(c.message)}</div>
+          <div class="commit-meta">${escHtml(c.author)} · ${new Date(c.timestamp*1000).toLocaleString()}</div>
+        </div>`).join('')
+    : '<span style="font-size:12px;color:var(--text-ph)">No commits yet.</span>';
+
+  const bdata = await api.get_branches();
+  const branchList = document.getElementById('branch-list');
+  branchList.innerHTML = bdata.branches.map(b => `
+    <div class="branch-entry">
+      <span class="${b === bdata.current ? 'branch-current' : ''}">${escHtml(b)}${b === bdata.current ? ' ✓':''}</span>
+      ${b !== bdata.current ? `<button class="branch-switch" data-branch="${escAttr(b)}">Switch</button>` : ''}
+    </div>`).join('') || '<span style="font-size:12px;color:var(--text-ph)">No branches.</span>';
+
+  branchList.querySelectorAll('[data-branch]').forEach(btn =>
+    btn.addEventListener('click', async () => {
+      const res = await api.switch_branch(btn.dataset.branch);
+      if (res.ok) { doc = res.document; refreshDoc(); refreshVCS(); }
+    })
+  );
+}
+
+// ── Save state ────────────────────────────────────────────────────────────────
+function setSave(state) {
+  document.getElementById('save-dot').className   = state;
+  document.getElementById('save-label').textContent = { saved:'Saved', saving:'Saving…', unsaved:'Unsaved' }[state] || '';
+}
+
+// ── Status bar ────────────────────────────────────────────────────────────────
+function updateStatus() {
+  let blocks = 0, chars = 0;
+  function count(list) {
+    for (const b of list) {
+      blocks++;
+      chars += inlinesToText(b.inlines || []).length + (b.content || '').length;
+      if (b.children) count(b.children);
+      if (b.items) b.items.forEach(i => chars += inlinesToText(i.inlines || []).length);
+    }
+  }
+  count(doc.blocks || []);
+  document.getElementById('status-left').textContent = `${blocks} blocks · ${chars} chars`;
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg, showUndo = true) {
+  document.getElementById('toast-msg').textContent = msg;
+  document.getElementById('toast-undo-btn').style.display = showUndo ? '' : 'none';
+  document.getElementById('toast').classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => document.getElementById('toast').classList.remove('show'), 3000);
+}
+
+// ── Panel toggles ─────────────────────────────────────────────────────────────
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); }
+function toggleVCS(forceOpen) {
+  const p = document.getElementById('vcs-panel');
+  if (forceOpen === true) p.classList.add('open'); else p.classList.toggle('open');
+  if (p.classList.contains('open')) refreshVCS();
+}
+
+// ── Global keyboard ───────────────────────────────────────────────────────────
+function globalKeydown(e) {
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key === 'z' && !e.shiftKey) { e.preventDefault(); doUndo(); }
+  if (mod && e.key === 'z' &&  e.shiftKey) { e.preventDefault(); doRedo(); }
+  if (mod && e.key === 'y')                { e.preventDefault(); doRedo(); }
+  if (mod && e.key === 'b')                { e.preventDefault(); applyFmt('bold'); }
+  if (mod && e.key === 'i')                { e.preventDefault(); applyFmt('italic'); }
+  if (mod && e.key === '`')                { e.preventDefault(); applyFmt('code'); }
+  if (mod && e.key === '\\')               { e.preventDefault(); toggleSidebar(); }
+  if (mod && e.key === 'Enter')            { e.preventDefault(); toggleVCS(true); document.getElementById('commit-msg').focus(); }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function refreshDoc() { renderDocument(); }
+function escHtml(s)  { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escAttr(s)  { return String(s).replace(/"/g,'&quot;'); }
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+init().catch(console.error);
+</script>
+</body>
+</html>

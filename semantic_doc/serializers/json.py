@@ -30,6 +30,7 @@ def _serialize_nodes(store: DocumentStore) -> list[dict[str, Any]]:
     nodes = []
     for i in range(store.entity_count):
         nodes.append({
+            "eid": i,
             "type": store.node_type[i],
             "parent": store.node_parent[i],
             "prev": store.node_prev[i],
