@@ -150,7 +150,7 @@ textarea.editor-input { min-height: 120px; font-family: monospace; resize: verti
 </div>
 
 <script>
-let document = null;
+let irDoc = null;
 let selectedNode = null;
 let selectedPath = [];
 
@@ -172,7 +172,7 @@ async function api(path, method = 'GET', body = null) {
 }
 
 async function loadDoc() {
-  document = await api('/document');
+  irDoc = await api('/document');
   selectedNode = null;
   selectedPath = [];
   renderTree();
@@ -183,14 +183,14 @@ async function loadDoc() {
 function renderTree() {
   const tree = document.getElementById('tree');
   tree.innerHTML = '';
-  const nodes = document.nodes;
-  const strings = document.strings;
+  const nodes = irDoc.nodes;
+  const strings = irDoc.strings;
   function getText(eid) {
     const children = nodes.filter(n => n.parent === eid);
     let text = '';
     for (const child of children) {
       if (child.type === 'text' || child.type === 'inline_code') {
-        const idx = document.components.inline_text?.[String(child.eid) ?? child.eid];
+        const idx = irDoc.components.inline_text?.[String(child.eid) ?? child.eid];
         if (idx != null && idx >= 0 && strings[idx]) text += strings[idx] + ' ';
       }
     }
@@ -199,11 +199,11 @@ function renderTree() {
   function getNodeLabel(node) {
     const type = node.type;
     if (type === 'section') {
-      const level = document.components.block_level?.[String(node.eid) ?? node.eid] || 1;
+      const level = irDoc.components.block_level?.[String(node.eid) ?? node.eid] || 1;
       return `H${level}: ${getText(node.eid)}`;
     }
     if (type === 'code_block') {
-      const lang = document.components.block_language?.[String(node.eid) ?? node.eid];
+      const lang = irDoc.components.block_language?.[String(node.eid) ?? node.eid];
       const langStr = (lang != null && lang >= 0) ? strings[lang] : '';
       return `Code (${langStr || 'plain'})`;
     }
@@ -211,11 +211,11 @@ function renderTree() {
       return getText(node.eid);
     }
     if (type === 'list') {
-      const lt = document.components.block_list_type?.[String(node.eid) ?? node.eid];
+      const lt = irDoc.components.block_list_type?.[String(node.eid) ?? node.eid];
       return `List (${lt || 'unordered'})`;
     }
     if (type === 'admonition') {
-      const at = document.components.block_admon_type?.[String(node.eid) ?? node.eid];
+      const at = irDoc.components.block_admon_type?.[String(node.eid) ?? node.eid];
       return `Admonition (${at || 'note'})`;
     }
     return type;
@@ -251,16 +251,16 @@ function renderEditor() {
   const fields = document.getElementById('editor-fields');
   const actions = document.getElementById('editor-actions');
   if (selectedNode == null) {
-    title.textContent = document.meta_title >= 0 ? document.strings[document.meta_title] : 'Untitled';
+    title.textContent = irDoc.meta_title >= 0 ? irDoc.strings[irDoc.meta_title] : 'Untitled';
     fields.innerHTML = '<p style="color:#888">Select a node from the tree to edit</p>';
     actions.style.display = 'none';
     return;
   }
-  const node = document.nodes.find(n => n.eid === selectedNode);
+  const node = irDoc.nodes.find(n => n.eid === selectedNode);
   if (!node) return;
   title.textContent = node.type;
   fields.innerHTML = '';
-  const comp = document.components;
+  const comp = irDoc.components;
   function addField(label, value, type = 'text') {
     const div = document.createElement('div');
     div.className = 'editor-section';
@@ -282,14 +282,14 @@ function renderEditor() {
   }
   if (node.type === 'text' || node.type === 'inline_code') {
     const idx = comp.inline_text?.[String(node.eid) ?? node.eid];
-    const text = (idx != null && idx >= 0) ? document.strings[idx] : '';
+    const text = (idx != null && idx >= 0) ? irDoc.strings[idx] : '';
     addField('Content', text, node.type === 'text' ? 'textarea' : 'text');
   }
   if (node.type === 'code_block') {
     const langIdx = comp.block_language?.[String(node.eid) ?? node.eid];
-    const lang = (langIdx != null && langIdx >= 0) ? document.strings[langIdx] : '';
+    const lang = (langIdx != null && langIdx >= 0) ? irDoc.strings[langIdx] : '';
     const contentIdx = comp.block_content?.[String(node.eid) ?? node.eid];
-    const content = (contentIdx != null && contentIdx >= 0) ? document.strings[contentIdx] : '';
+    const content = (contentIdx != null && contentIdx >= 0) ? irDoc.strings[contentIdx] : '';
     addField('Language', lang);
     addField('Content', content, 'textarea');
   }
@@ -305,9 +305,9 @@ function renderEditor() {
   }
   if (node.type === 'link') {
     const urlIdx = comp.inline_url?.[String(node.eid) ?? node.eid];
-    const url = (urlIdx != null && urlIdx >= 0) ? document.strings[urlIdx] : '';
+    const url = (urlIdx != null && urlIdx >= 0) ? irDoc.strings[urlIdx] : '';
     const titleIdx = comp.inline_title?.[String(node.eid) ?? node.eid];
-    const title = (titleIdx != null && titleIdx >= 0) ? document.strings[titleIdx] : '';
+    const title = (titleIdx != null && titleIdx >= 0) ? irDoc.strings[titleIdx] : '';
     addField('URL', url);
     addField('Title', title);
   }
@@ -315,12 +315,12 @@ function renderEditor() {
 }
 
 function getText(eid) {
-  const children = document.nodes.filter(n => n.parent === eid);
+  const children = irDoc.nodes.filter(n => n.parent === eid);
   let text = '';
   for (const child of children) {
     if (child.type === 'text' || child.type === 'inline_code') {
-      const idx = document.components.inline_text?.[String(child.eid) ?? child.eid];
-      if (idx != null && idx >= 0 && document.strings[idx]) text += document.strings[idx] + ' ';
+      const idx = irDoc.components.inline_text?.[String(child.eid) ?? child.eid];
+      if (idx != null && idx >= 0 && irDoc.strings[idx]) text += irDoc.strings[idx] + ' ';
     }
   }
   return text.trim();
@@ -332,110 +332,110 @@ async function saveNode() {
     const field = input.dataset.field;
     const value = input.value;
     if (field === 'Content') {
-      const node = document.nodes.find(n => n.eid === selectedNode);
+      const node = irDoc.nodes.find(n => n.eid === selectedNode);
       if (node.type === 'text' || node.type === 'inline_code') {
-        let idx = document.components.inline_text?.[String(node.eid) ?? node.eid];
+        let idx = irDoc.components.inline_text?.[String(node.eid) ?? node.eid];
         if (idx == null || idx < 0) {
-          idx = document.strings.length;
-          document.strings.push('');
-          if (!document.components.inline_text) document.components.inline_text = {};
+          idx = irDoc.strings.length;
+          irDoc.strings.push('');
+          if (!irDoc.components.inline_text) irDoc.components.inline_text = {};
         }
-        document.components.inline_text[String(node.eid) ?? node.eid] = idx;
-        document.strings[idx] = value;
+        irDoc.components.inline_text[String(node.eid) ?? node.eid] = idx;
+        irDoc.strings[idx] = value;
       }
       if (node.type === 'paragraph' || node.type === 'list_item' || node.type === 'table_cell') {
-        let textChild = document.nodes.find(n => n.parent === node.eid && (n.type === 'text' || n.type === 'inline_code'));
+        let textChild = irDoc.nodes.find(n => n.parent === node.eid && (n.type === 'text' || n.type === 'inline_code'));
         if (!textChild) {
-          textChild = { eid: document.nodes.length, type: 'text', parent: node.eid, prev: -1, next: -1, first_child: -1 };
-          document.nodes.push(textChild);
-          if (!document.components.inline_text) document.components.inline_text = {};
-          document.components.inline_text[String(textChild.eid)] = document.strings.length;
-          document.strings.push(value);
+          textChild = { eid: irDoc.nodes.length, type: 'text', parent: node.eid, prev: -1, next: -1, first_child: -1 };
+          irDoc.nodes.push(textChild);
+          if (!irDoc.components.inline_text) irDoc.components.inline_text = {};
+          irDoc.components.inline_text[String(textChild.eid)] = irDoc.strings.length;
+          irDoc.strings.push(value);
         } else {
-          const idx = document.components.inline_text?.[String(textChild.eid) ?? textChild.eid];
+          const idx = irDoc.components.inline_text?.[String(textChild.eid) ?? textChild.eid];
           if (idx != null && idx >= 0) {
-            document.strings[idx] = value;
+            irDoc.strings[idx] = value;
           }
         }
       }
       if (node.type === 'code_block') {
-        let contentIdx = document.components.block_content?.[String(node.eid) ?? node.eid];
+        let contentIdx = irDoc.components.block_content?.[String(node.eid) ?? node.eid];
         if (contentIdx == null || contentIdx < 0) {
-          contentIdx = document.strings.length;
-          document.strings.push('');
-          if (!document.components.block_content) document.components.block_content = {};
+          contentIdx = irDoc.strings.length;
+          irDoc.strings.push('');
+          if (!irDoc.components.block_content) irDoc.components.block_content = {};
         }
-        document.components.block_content[String(node.eid) ?? node.eid] = contentIdx;
-        document.strings[contentIdx] = value;
+        irDoc.components.block_content[String(node.eid) ?? node.eid] = contentIdx;
+        irDoc.strings[contentIdx] = value;
       }
     }
     if (field === 'Language') {
-      const node = document.nodes.find(n => n.eid === selectedNode);
-      let langIdx = document.components.block_language?.[String(node.eid) ?? node.eid];
+      const node = irDoc.nodes.find(n => n.eid === selectedNode);
+      let langIdx = irDoc.components.block_language?.[String(node.eid) ?? node.eid];
       if (langIdx == null || langIdx < 0) {
-        langIdx = document.strings.length;
-        document.strings.push('');
-        if (!document.components.block_language) document.components.block_language = {};
+        langIdx = irDoc.strings.length;
+        irDoc.strings.push('');
+        if (!irDoc.components.block_language) irDoc.components.block_language = {};
       }
-      document.components.block_language[String(node.eid) ?? node.eid] = langIdx;
-      document.strings[langIdx] = value;
+      irDoc.components.block_language[String(node.eid) ?? node.eid] = langIdx;
+      irDoc.strings[langIdx] = value;
     }
     if (field === 'Level') {
-      const node = document.nodes.find(n => n.eid === selectedNode);
-      if (document.components.block_level) {
-        document.components.block_level[String(node.eid) ?? node.eid] = parseInt(value) || 1;
+      const node = irDoc.nodes.find(n => n.eid === selectedNode);
+      if (irDoc.components.block_level) {
+        irDoc.components.block_level[String(node.eid) ?? node.eid] = parseInt(value) || 1;
       }
     }
     if (field === 'Title') {
-      const node = document.nodes.find(n => n.eid === selectedNode);
+      const node = irDoc.nodes.find(n => n.eid === selectedNode);
       if (node.type === 'section') {
-        let textChild = document.nodes.find(n => n.parent === node.eid && n.type === 'text');
+        let textChild = irDoc.nodes.find(n => n.parent === node.eid && n.type === 'text');
         if (!textChild) {
-          textChild = { eid: document.nodes.length, type: 'text', parent: node.eid, prev: -1, next: -1, first_child: -1 };
-          document.nodes.push(textChild);
-          if (!document.components.inline_text) document.components.inline_text = {};
-          document.components.inline_text[String(textChild.eid)] = document.strings.length;
-          document.strings.push(value);
+          textChild = { eid: irDoc.nodes.length, type: 'text', parent: node.eid, prev: -1, next: -1, first_child: -1 };
+          irDoc.nodes.push(textChild);
+          if (!irDoc.components.inline_text) irDoc.components.inline_text = {};
+          irDoc.components.inline_text[String(textChild.eid)] = irDoc.strings.length;
+          irDoc.strings.push(value);
         } else {
-          const idx = document.components.inline_text?.[String(textChild.eid) ?? textChild.eid];
+          const idx = irDoc.components.inline_text?.[String(textChild.eid) ?? textChild.eid];
           if (idx != null && idx >= 0) {
-            document.strings[idx] = value;
+            irDoc.strings[idx] = value;
           }
         }
       }
     }
     if (field === 'URL') {
-      const node = document.nodes.find(n => n.eid === selectedNode);
-      let urlIdx = document.components.inline_url?.[String(node.eid) ?? node.eid];
+      const node = irDoc.nodes.find(n => n.eid === selectedNode);
+      let urlIdx = irDoc.components.inline_url?.[String(node.eid) ?? node.eid];
       if (urlIdx == null || urlIdx < 0) {
-        urlIdx = document.strings.length;
-        document.strings.push('');
-        if (!document.components.inline_url) document.components.inline_url = {};
+        urlIdx = irDoc.strings.length;
+        irDoc.strings.push('');
+        if (!irDoc.components.inline_url) irDoc.components.inline_url = {};
       }
-      document.components.inline_url[String(node.eid) ?? node.eid] = urlIdx;
-      document.strings[urlIdx] = value;
+      irDoc.components.inline_url[String(node.eid) ?? node.eid] = urlIdx;
+      irDoc.strings[urlIdx] = value;
     }
     if (field === 'Title') {
-      const node = document.nodes.find(n => n.eid === selectedNode);
+      const node = irDoc.nodes.find(n => n.eid === selectedNode);
       if (node.type === 'link') {
-        let titleIdx = document.components.inline_title?.[String(node.eid) ?? node.eid];
+        let titleIdx = irDoc.components.inline_title?.[String(node.eid) ?? node.eid];
         if (titleIdx == null || titleIdx < 0) {
-          titleIdx = document.strings.length;
-          document.strings.push('');
-          if (!document.components.inline_title) document.components.inline_title = {};
+          titleIdx = irDoc.strings.length;
+          irDoc.strings.push('');
+          if (!irDoc.components.inline_title) irDoc.components.inline_title = {};
         }
-        document.components.inline_title[String(node.eid) ?? node.eid] = titleIdx;
-        document.strings[titleIdx] = value;
+        irDoc.components.inline_title[String(node.eid) ?? node.eid] = titleIdx;
+        irDoc.strings[titleIdx] = value;
       }
     }
   }
-  await api('/document', 'POST', document);
+  await api('/document', 'POST', irDoc);
   renderTree();
 }
 
 async function deleteNode() {
   if (selectedNode == null) return;
-  const node = document.nodes.find(n => n.eid === selectedNode);
+  const node = irDoc.nodes.find(n => n.eid === selectedNode);
   if (!node) return;
   if (!confirm(`Delete ${node.type}?`)) return;
   const eid = selectedNode;
@@ -443,27 +443,27 @@ async function deleteNode() {
   const prev = node.prev;
   const next = node.next;
   if (prev !== -1) {
-    const prevNode = document.nodes.find(n => n.eid === prev);
+    const prevNode = irDoc.nodes.find(n => n.eid === prev);
     if (prevNode) prevNode.next = next;
   }
   if (next !== -1) {
-    const nextNode = document.nodes.find(n => n.eid === next);
+    const nextNode = irDoc.nodes.find(n => n.eid === next);
     if (nextNode) nextNode.prev = prev;
   }
   if (parent === -1) {
-    if (document.root_first === eid) {
-      document.root_first = next !== -1 ? next : -1;
+    if (irDoc.root_first === eid) {
+      irDoc.root_first = next !== -1 ? next : -1;
     }
   } else {
-    const parentNode = document.nodes.find(n => n.eid === parent);
+    const parentNode = irDoc.nodes.find(n => n.eid === parent);
     if (parentNode && parentNode.first_child === eid) {
       parentNode.first_child = next !== -1 ? next : -1;
     }
   }
-  const idx = document.nodes.findIndex(n => n.eid === eid);
-  if (idx !== -1) document.nodes.splice(idx, 1);
+  const idx = irDoc.nodes.findIndex(n => n.eid === eid);
+  if (idx !== -1) irDoc.nodes.splice(idx, 1);
   selectedNode = null;
-  await api('/document', 'POST', document);
+  await api('/document', 'POST', irDoc);
   renderTree();
   renderEditor();
 }
@@ -472,51 +472,51 @@ async function addNode() {
   const type = prompt('Node type (paragraph, section, code_block, list, thematic_break, admonition):', 'paragraph');
   if (!type) return;
   const newNode = {
-    eid: document.nodes.length,
+    eid: irDoc.nodes.length,
     type: type,
     parent: -1,
     prev: -1,
     next: -1,
     first_child: -1
   };
-  if (document.root_first === -1) {
-    document.root_first = newNode.eid;
+  if (irDoc.root_first === -1) {
+    irDoc.root_first = newNode.eid;
   } else {
-    let last = document.root_first;
+    let last = irDoc.root_first;
     while (true) {
-      const node = document.nodes.find(n => n.eid === last);
+      const node = irDoc.nodes.find(n => n.eid === last);
       if (!node || node.next === -1) break;
       last = node.next;
     }
-    const lastNode = document.nodes.find(n => n.eid === last);
+    const lastNode = irDoc.nodes.find(n => n.eid === last);
     if (lastNode) {
       lastNode.next = newNode.eid;
       newNode.prev = last;
     }
   }
-  document.nodes.push(newNode);
+  irDoc.nodes.push(newNode);
   if (type === 'section') {
-    if (!document.components.block_level) document.components.block_level = {};
-    document.components.block_level[String(newNode.eid)] = 1;
-    const textNode = { eid: document.nodes.length, type: 'text', parent: newNode.eid, prev: -1, next: -1, first_child: -1 };
-    document.nodes.push(textNode);
-    document.components.inline_text = document.components.inline_text || {};
-    document.components.inline_text[String(textNode.eid)] = document.strings.length;
-    document.strings.push('New Section');
+    if (!irDoc.components.block_level) irDoc.components.block_level = {};
+    irDoc.components.block_level[String(newNode.eid)] = 1;
+    const textNode = { eid: irDoc.nodes.length, type: 'text', parent: newNode.eid, prev: -1, next: -1, first_child: -1 };
+    irDoc.nodes.push(textNode);
+    irDoc.components.inline_text = irDoc.components.inline_text || {};
+    irDoc.components.inline_text[String(textNode.eid)] = irDoc.strings.length;
+    irDoc.strings.push('New Section');
   }
   if (type === 'paragraph') {
-    const textNode = { eid: document.nodes.length, type: 'text', parent: newNode.eid, prev: -1, next: -1, first_child: -1 };
-    document.nodes.push(textNode);
-    document.components.inline_text = document.components.inline_text || {};
-    document.components.inline_text[String(textNode.eid)] = document.strings.length;
-    document.strings.push('New paragraph');
+    const textNode = { eid: irDoc.nodes.length, type: 'text', parent: newNode.eid, prev: -1, next: -1, first_child: -1 };
+    irDoc.nodes.push(textNode);
+    irDoc.components.inline_text = irDoc.components.inline_text || {};
+    irDoc.components.inline_text[String(textNode.eid)] = irDoc.strings.length;
+    irDoc.strings.push('New paragraph');
   }
   if (type === 'code_block') {
-    document.components.block_content = document.components.block_content || {};
-    document.components.block_content[String(newNode.eid)] = document.strings.length;
-    document.strings.push('# code here');
+    irDoc.components.block_content = irDoc.components.block_content || {};
+    irDoc.components.block_content[String(newNode.eid)] = irDoc.strings.length;
+    irDoc.strings.push('# code here');
   }
-  await api('/document', 'POST', document);
+  await api('/document', 'POST', irDoc);
   renderTree();
   selectNode(newNode.eid);
 }
@@ -605,7 +605,7 @@ async function createBranch() {
 async function switchBranch(name) {
   const res = await api('/branch', 'POST', { action: 'switch', name });
   if (res.status === 'ok') {
-    document = res.document;
+    irDoc = res.document;
     renderTree();
     renderEditor();
     updateBranchBadge();
